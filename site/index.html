@@ -39,8 +39,6 @@
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --r-md: 14px;
   --tabbar-h: 58px;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
@@ -61,28 +59,31 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; background: var(--bg); }
+/* The page itself never scrolls. Header, scroller and tab bar are rows of a full-height column, so
+   nothing is position: fixed; on iPhones fixed bars get dragged around when the page rubber-bands. */
+html { -webkit-text-size-adjust: 100%; background: var(--bg); height: 100%; overscroll-behavior: none; }
 body {
-  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  margin: 0; height: 100%; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none;
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
 }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
 h1, h2, h3, p { margin: 0; }
 
+.scroller { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 .app {
   max-width: 560px; margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 28px);
+  padding-bottom: 28px;
 }
 
 /* Header */
 .top {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg);
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding-block: 12px 10px; border-bottom: 1px solid var(--line);
+  flex: none; background: var(--bg); border-bottom: 1px solid var(--line);
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
 }
+.top-inner { max-width: 528px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 25px; letter-spacing: 0.02em; line-height: 1; }
 .wordmark span { color: var(--muted); font-weight: 600; margin-left: 3px; }
 .subline { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12.5px; color: var(--muted); }
@@ -349,7 +350,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
 /* Tab bar */
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--bg); border-top: 1px solid var(--line);
+  flex: none; position: relative; z-index: 25; background: var(--bg); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
@@ -378,8 +379,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="top">
+<header class="top">
+  <div class="top-inner">
     <div>
       <div class="wordmark">W/L DRAFT<span>26–27</span></div>
       <div class="subline" id="dateline">Loading…</div>
@@ -388,14 +389,16 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       <span class="live-pill" id="livePill" hidden><i class="live-dot"></i><span id="liveCount"></span></span>
       <button class="me-btn" id="meBtn" type="button" aria-label="Choose who you are">?</button>
     </div>
-  </header>
-  <main>
+  </div>
+</header>
+<main class="scroller" id="scroller">
+  <div class="app">
     <section class="view" id="view-standings" aria-label="Standings"><p class="empty">Loading standings…</p></section>
     <section class="view" id="view-tonight" aria-label="Tonight" hidden></section>
     <section class="view" id="view-race" aria-label="Race" hidden></section>
     <section class="view" id="view-draft" aria-label="Draft" hidden></section>
-  </main>
-</div>
+  </div>
+</main>
 
 <nav class="tabbar" aria-label="Sections">
   <div class="tabbar-inner">
@@ -1061,7 +1064,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const allPicks = ROWS.flatMap((r) => r.picks);
     const beaten = allPicks.filter((k) => k.pts < ghost.pts).length;
     html += `<section class="sect card"><h2>The pick nobody made</h2>
-      <p>${ghost.pts ? `<b>${ghost.team} ${ghost.side}</b> (${esc(TEAMS[ghost.team].city)} ${ghost.side === 'W' ? 'wins' : 'losses'}) would have ${ghost.pts} points by now, more than ${beaten} of the 30 picks you made.`
+      <p>${ghost.pts ? `<b>${ghost.team} ${ghost.side}</b> (${esc(TEAMS[ghost.team].city)} ${ghost.side === 'W' ? 'wins' : 'losses'}) would have ${ghost.pts} point${ghost.pts === 1 ? '' : 's'} by now, more than ${beaten} of the 30 picks you made.`
         : `<b>${ghost.team} ${ghost.side}</b> (${esc(TEAMS[ghost.team].city)} ${ghost.side === 'W' ? 'wins' : 'losses'}) was worth ${lineValue(ghost.team, ghost.side)} by the Vegas lines and nobody took it. We'll see who regrets that.`}</p></section>`;
 
     if (FINALS.length) {
@@ -1314,7 +1317,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       else b.removeAttribute('aria-current');
     });
     if (tab === 'race') drawChart();
-    if (scroll) window.scrollTo(0, 0);
+    if (scroll) $('scroller').scrollTop = 0;
   }
 
   function setMe(s) {

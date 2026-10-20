@@ -2,6 +2,8 @@
 
 Live standings for a five-person NBA draft where each pick is a team's wins or its losses.
 
+**Live at https://profasaf.github.io/wl-draft/**
+
 - `site/` is the page GitHub Pages serves. It reads `site/data.json` and polls ESPN's scoreboard every 30 seconds while games are on.
 - `scripts/update_data.py` refreshes `site/data.json` from ESPN. GitHub Actions runs it every 15 minutes during game hours (`.github/workflows/update.yml`) and commits the data only when something changed.
 - `scripts/wl.py` holds the scoring and the title-odds model; `scripts/espn.py` reads ESPN.

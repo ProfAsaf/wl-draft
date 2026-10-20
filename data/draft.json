@@ -1,0 +1,13 @@
+{
+  "season": "2026-27",
+  "format": "6-round snake draft; a pick is a team plus W or L; score = wins on W picks + losses on L picks",
+  "slots": ["Ryan", "Brian", "Matt", "Nick", "Asaf"],
+  "rounds": [
+    [["SAS", "W"], ["OKC", "W"], ["SAC", "L"], ["BKN", "L"], ["LAC", "L"]],
+    [["NYK", "W"], ["BOS", "W"], ["CHI", "L"], ["NOP", "L"], ["MIL", "L"]],
+    [["MEM", "L"], ["HOU", "W"], ["PHI", "W"], ["DET", "W"], ["DEN", "W"]],
+    [["LAL", "W"], ["TOR", "W"], ["DAL", "L"], ["MIN", "W"], ["CLE", "W"]],
+    [["GSW", "L"], ["MIA", "W"], ["WAS", "L"], ["POR", "W"], ["CHA", "L"]],
+    [["POR", "L"], ["ORL", "W"], ["PHX", "L"], ["IND", "W"], ["ATL", "W"]]
+  ]
+}

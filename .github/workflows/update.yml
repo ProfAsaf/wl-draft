@@ -1,0 +1,64 @@
+name: Update standings
+
+on:
+  schedule:
+    # Every 15 minutes from noon to about 3 AM Eastern, plus a morning catch-up. Times are UTC.
+    - cron: "7,22,37,52 16-23 * * *"
+    - cron: "7,22,37,52 0-7 * * *"
+    - cron: "17 13 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update-standings
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.commit.outputs.changed == 'true' || github.event_name != 'schedule' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Pull results from ESPN
+        run: python scripts/update_data.py
+      - name: Commit new data
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/season.json data/history.json site/data.json
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Update standings"
+            git pull --rebase origin main
+            git push origin HEAD:main
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-pages-artifact@v5
+        if: steps.commit.outputs.changed == 'true' || github.event_name != 'schedule'
+        with:
+          path: site
+
+  deploy:
+    needs: update
+    if: needs.update.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

@@ -1,0 +1,242 @@
+{
+ "ATL": {
+  "espnId": "1",
+  "espnAbbr": "ATL",
+  "city": "Atlanta",
+  "name": "Hawks",
+  "color": "#c8102e",
+  "altColor": "#fdb927"
+ },
+ "BKN": {
+  "espnId": "17",
+  "espnAbbr": "BKN",
+  "city": "Brooklyn",
+  "name": "Nets",
+  "color": "#000000",
+  "altColor": "#ffffff"
+ },
+ "BOS": {
+  "espnId": "2",
+  "espnAbbr": "BOS",
+  "city": "Boston",
+  "name": "Celtics",
+  "color": "#008348",
+  "altColor": "#ffffff"
+ },
+ "CHA": {
+  "espnId": "30",
+  "espnAbbr": "CHA",
+  "city": "Charlotte",
+  "name": "Hornets",
+  "color": "#008ca8",
+  "altColor": "#1d1060"
+ },
+ "CHI": {
+  "espnId": "4",
+  "espnAbbr": "CHI",
+  "city": "Chicago",
+  "name": "Bulls",
+  "color": "#ce1141",
+  "altColor": "#000000"
+ },
+ "CLE": {
+  "espnId": "5",
+  "espnAbbr": "CLE",
+  "city": "Cleveland",
+  "name": "Cavaliers",
+  "color": "#860038",
+  "altColor": "#bc945c"
+ },
+ "DAL": {
+  "espnId": "6",
+  "espnAbbr": "DAL",
+  "city": "Dallas",
+  "name": "Mavericks",
+  "color": "#0064b1",
+  "altColor": "#bbc4ca"
+ },
+ "DEN": {
+  "espnId": "7",
+  "espnAbbr": "DEN",
+  "city": "Denver",
+  "name": "Nuggets",
+  "color": "#0e2240",
+  "altColor": "#fec524"
+ },
+ "DET": {
+  "espnId": "8",
+  "espnAbbr": "DET",
+  "city": "Detroit",
+  "name": "Pistons",
+  "color": "#1d428a",
+  "altColor": "#c8102e"
+ },
+ "GSW": {
+  "espnId": "9",
+  "espnAbbr": "GS",
+  "city": "Golden State",
+  "name": "Warriors",
+  "color": "#fdb927",
+  "altColor": "#1d428a"
+ },
+ "HOU": {
+  "espnId": "10",
+  "espnAbbr": "HOU",
+  "city": "Houston",
+  "name": "Rockets",
+  "color": "#ce0e2d",
+  "altColor": "#000000"
+ },
+ "IND": {
+  "espnId": "11",
+  "espnAbbr": "IND",
+  "city": "Indiana",
+  "name": "Pacers",
+  "color": "#0c2340",
+  "altColor": "#ffd520"
+ },
+ "LAC": {
+  "espnId": "12",
+  "espnAbbr": "LAC",
+  "city": "LA",
+  "name": "Clippers",
+  "color": "#12173f",
+  "altColor": "#c8102e"
+ },
+ "LAL": {
+  "espnId": "13",
+  "espnAbbr": "LAL",
+  "city": "Los Angeles",
+  "name": "Lakers",
+  "color": "#552583",
+  "altColor": "#fdb927"
+ },
+ "MEM": {
+  "espnId": "29",
+  "espnAbbr": "MEM",
+  "city": "Memphis",
+  "name": "Grizzlies",
+  "color": "#5d76a9",
+  "altColor": "#12173f"
+ },
+ "MIA": {
+  "espnId": "14",
+  "espnAbbr": "MIA",
+  "city": "Miami",
+  "name": "Heat",
+  "color": "#98002e",
+  "altColor": "#000000"
+ },
+ "MIL": {
+  "espnId": "15",
+  "espnAbbr": "MIL",
+  "city": "Milwaukee",
+  "name": "Bucks",
+  "color": "#00471b",
+  "altColor": "#eee1c6"
+ },
+ "MIN": {
+  "espnId": "16",
+  "espnAbbr": "MIN",
+  "city": "Minnesota",
+  "name": "Timberwolves",
+  "color": "#266092",
+  "altColor": "#79bc43"
+ },
+ "NOP": {
+  "espnId": "3",
+  "espnAbbr": "NO",
+  "city": "New Orleans",
+  "name": "Pelicans",
+  "color": "#0a2240",
+  "altColor": "#b4975a"
+ },
+ "NYK": {
+  "espnId": "18",
+  "espnAbbr": "NY",
+  "city": "New York",
+  "name": "Knicks",
+  "color": "#1d428a",
+  "altColor": "#f58426"
+ },
+ "OKC": {
+  "espnId": "25",
+  "espnAbbr": "OKC",
+  "city": "Oklahoma City",
+  "name": "Thunder",
+  "color": "#007ac1",
+  "altColor": "#ef3b24"
+ },
+ "ORL": {
+  "espnId": "19",
+  "espnAbbr": "ORL",
+  "city": "Orlando",
+  "name": "Magic",
+  "color": "#0150b5",
+  "altColor": "#9ca0a3"
+ },
+ "PHI": {
+  "espnId": "20",
+  "espnAbbr": "PHI",
+  "city": "Philadelphia",
+  "name": "76ers",
+  "color": "#1d428a",
+  "altColor": "#e01234"
+ },
+ "PHX": {
+  "espnId": "21",
+  "espnAbbr": "PHX",
+  "city": "Phoenix",
+  "name": "Suns",
+  "color": "#29127a",
+  "altColor": "#e56020"
+ },
+ "POR": {
+  "espnId": "22",
+  "espnAbbr": "POR",
+  "city": "Portland",
+  "name": "Trail Blazers",
+  "color": "#e03a3e",
+  "altColor": "#000000"
+ },
+ "SAC": {
+  "espnId": "23",
+  "espnAbbr": "SAC",
+  "city": "Sacramento",
+  "name": "Kings",
+  "color": "#5a2d81",
+  "altColor": "#6a7a82"
+ },
+ "SAS": {
+  "espnId": "24",
+  "espnAbbr": "SA",
+  "city": "San Antonio",
+  "name": "Spurs",
+  "color": "#000000",
+  "altColor": "#c4ced4"
+ },
+ "TOR": {
+  "espnId": "28",
+  "espnAbbr": "TOR",
+  "city": "Toronto",
+  "name": "Raptors",
+  "color": "#d91244",
+  "altColor": "#000000"
+ },
+ "UTA": {
+  "espnId": "26",
+  "espnAbbr": "UTAH",
+  "city": "Utah",
+  "name": "Jazz",
+  "color": "#4e008e",
+  "altColor": "#79a3dc"
+ },
+ "WAS": {
+  "espnId": "27",
+  "espnAbbr": "WSH",
+  "city": "Washington",
+  "name": "Wizards",
+  "color": "#e31837",
+  "altColor": "#002b5c"
+ }
+}

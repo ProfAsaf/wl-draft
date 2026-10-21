@@ -2,9 +2,10 @@ name: Update standings
 
 on:
   schedule:
-    # Every 15 minutes from noon to about 3 AM Eastern, plus a morning catch-up. Times are UTC.
-    - cron: "7,22,37,52 16-23 * * *"
-    - cron: "7,22,37,52 0-7 * * *"
+    # Every 15 minutes from noon to about 3 AM Eastern, plus a morning catch-up. Times are UTC,
+    # off the hour because GitHub drops more scheduled runs at :00.
+    - cron: "4,19,34,49 16-23 * * *"
+    - cron: "4,19,34,49 0-7 * * *"
     - cron: "17 13 * * *"
   workflow_dispatch:
   push:

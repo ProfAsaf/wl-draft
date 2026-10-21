@@ -474,6 +474,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   let lastPoll = 0;
   let FINALS = [], REC = {}, ROWS = [], MOVE = [], DAYCOL = null;
   let pollTimer = 0;
+  const extra = new Map();   // finals from days data.json hasn't recorded yet, fetched from ESPN
+  const filled = new Set();  // those days, once every game on them is final
   const state = { tab: 'standings', me: null, expanded: null, head: 0, metric: 'vegas', focus: null, scrub: null, botOpen: null };
   const pc = (s) => `--pc:var(--p${s + 1})`;
 
@@ -497,6 +499,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   function finalsList() {
     const out = D.games.map(([d, away, home, winner, id]) => ({ day: D.days[d], away, home, winner, id }));
     const known = new Set(out.map((g) => g.id));
+    for (const g of extra.values()) {
+      if (!known.has(g.id)) { out.push(g); known.add(g.id); }
+    }
     for (const g of slate) {
       if (g.state === 'final' && g.score && !known.has(g.id)) {
         out.push({ day: g.day, away: g.away, home: g.home, winner: g.score[1] > g.score[0] ? g.home : g.away, id: g.id });
@@ -668,12 +673,16 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return `${g.spread < 0 ? g.home : g.away} −${Math.abs(g.spread)}`;
   };
 
+  // Games after today from data.json, minus any the live scoreboard already covers (data.json can lag a day).
+  const upcoming = () => D.ahead.filter(([tip, away, home]) => Date.parse(tip) > Date.now() - 6 * 3600e3
+    && !slate.some((g) => g.away === away && g.home === home));
+
   function nextGames(team, n) {
     const out = [];
     for (const g of slate) {
       if (g.state !== 'final' && (g.home === team || g.away === team)) out.push({ tip: g.tip, opp: g.home === team ? g.away : g.home, away: g.away === team, today: true, g });
     }
-    for (const [tip, away, home] of D.ahead) {
+    for (const [tip, away, home] of upcoming()) {
       if (out.length >= n) break;
       if (away === team || home === team) out.push({ tip, opp: away === team ? home : away, away: away === team });
     }
@@ -749,7 +758,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const liveN = slate.filter((g) => g.state === 'live').length;
     const left = slate.filter((g) => g.state !== 'final').length;
     if (!slate.length) {
-      const next = D.ahead[0];
+      const next = upcoming()[0];
       return `<div class="preview card"><div class="prev-head"><b>Tonight</b><span class="note">No games today</span></div>
         ${next ? `<div class="prev-row"><span class="note">Next games ${esc(fmtWeekday.format(new Date(next[0])))}</span></div>` : ''}</div>`;
     }
@@ -834,9 +843,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const day = currentDay();
     let html = `<div class="tonight-head"><div><h2>${slate.length ? 'Tonight' : 'No games today'}</h2><p>${esc(isoDay(day))}${slate.length ? ` · ${slate.length} games` : ''}${liveN ? ` · ${liveN} live` : ''}${finalN ? ` · ${finalN} final` : ''}</p></div></div>`;
     if (!slate.length) {
-      const first = D.ahead.length ? D.ahead[0][0] : null;
+      const ahead = upcoming();
+      const first = ahead.length ? ahead[0][0] : null;
       const nextDay = first ? dateKey(new Date(first)) : null;
-      const games = D.ahead.filter(([tip]) => dateKey(new Date(tip)) === nextDay);
+      const games = ahead.filter(([tip]) => dateKey(new Date(tip)) === nextDay);
       html += games.length ? `<div class="sect card"><h2>Next up, ${esc(fmtWeekday.format(new Date(first)))}</h2><div class="ahead-list">${games.map(([tip, a, h]) => `<div><span>${teamChip(a)} <span class="note">@</span> ${teamChip(h)}</span><span class="note">${esc(fmtTime.format(new Date(tip)))}</span></div>`).join('')}</div></div>` : '';
       $('view-tonight').innerHTML = html;
       return;
@@ -1201,8 +1211,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return '';
   }
 
-  function parseBoard(j) {
-    const day = (j.day && j.day.date) || D.meta.today;
+  function parseBoard(j, forDay) {
+    const day = forDay || (j.day && j.day.date) || D.meta.today;
     const games = [];
     for (const e of j.events || []) {
       const c = e.competitions && e.competitions[0];
@@ -1229,13 +1239,37 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         leverage: known && known.leverage != null ? known.leverage : null,
       });
     }
-    return games;
+    return { day, games };
+  }
+
+  /* data.json only moves when the GitHub job runs. If it's behind, fetch ESPN's results for the
+     days in between (a week at most) so the standings never wait on it. */
+  const isoPlus = (d, n) => new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  async function fillGaps(curDay) {
+    let added = false;
+    const recorded = new Set(D.games.map((g) => g[4]));
+    const weekAgo = isoPlus(curDay, -7);
+    for (let d = D.meta.today > weekAgo ? D.meta.today : weekAgo; d < curDay; d = isoPlus(d, 1)) {
+      if (filled.has(d)) continue;
+      try {
+        const r = await fetch(`${ESPN}?dates=${d.replace(/-/g, '')}`, { cache: 'no-cache' });
+        if (!r.ok) continue;
+        const { games } = parseBoard(await r.json(), d);
+        for (const g of games) {
+          if (g.state !== 'final' || !g.score || extra.has(g.id) || recorded.has(g.id)) continue;
+          extra.set(g.id, { day: d, away: g.away, home: g.home, winner: g.score[1] > g.score[0] ? g.home : g.away, id: g.id });
+          added = true;
+        }
+        if (games.every((g) => g.state === 'final')) filled.add(d);
+      } catch (e) { /* the next poll tries again */ }
+    }
+    return added;
   }
 
   let slateSig = '';
-  function applyBoard(games) {
+  function applyBoard(games, force) {
     const sig = JSON.stringify(games.map((g) => [g.id, g.state, g.score, g.clock]));
-    if (sig === slateSig) return;  // nothing new since the last poll
+    if (sig === slateSig && !force) return;  // nothing new since the last poll
     slateSig = sig;
     const was = new Map(slate.map((g) => [g.id, g.state]));
     const before = new Map(ROWS.map((r) => [r.s, r.rank]));
@@ -1278,7 +1312,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     try {
       const r = await fetch(ESPN, { cache: 'no-cache' });
       if (!r.ok) throw new Error('ESPN ' + r.status);
-      applyBoard(parseBoard(await r.json()));
+      const board = parseBoard(await r.json());
+      applyBoard(board.games, await fillGaps(board.day));
       liveOk = true;
       lastPoll = Date.now();
     } catch (e) {

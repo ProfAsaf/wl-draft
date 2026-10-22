@@ -507,7 +507,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     if (liveOk !== true) slate = D.slate.map((g) => ({ ...g, day: D.meta.today, score: g.score || null, clock: g.state === 'final' ? 'Final' : '' }));
     else for (const g of slate) { const m = D.slate.find((x) => x.id === g.id); if (m && m.leverage != null) g.leverage = m.leverage; }
   }
-  const lineValue = (team, side) => (side === 'W' ? TEAMS[team].line : 82 - TEAMS[team].line);
+  // What Vegas expects from a pick: the preseason line scaled so the league adds up to a real season.
+  const fairLine = (team) => TEAMS[team].fair || TEAMS[team].line;
+  const lineValue = (team, side) => (side === 'W' ? fairLine(team) : 82 - fairLine(team));
   const currentDay = () => (slate.length ? slate[0].day : D.meta.today);
 
   /* ---------- results ---------- */
@@ -772,7 +774,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <span class="num vs">${signed(k.vs)}</span>
         ${nextCell(k.team)}
       </button>`).join('')}
-      <p class="psum">Title odds ${pct(D.oddsNow[r.s])}. ${D.meta.oddsBasis === 'market' ? 'Vegas now projects' : 'Projected finish'} ${Math.round(D.projNow[r.s])}; draft-day projection was ${paper[r.s]}.</p>
+      <p class="psum">Title odds ${pct(D.oddsNow[r.s])}. ${D.meta.oddsBasis === 'market' ? 'Vegas now projects' : 'Projected finish'} ${Math.round(D.projNow[r.s])}; draft-day projection was ${Math.round(paper[r.s])}.</p>
     </div>`;
   }
 
@@ -1165,7 +1167,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
     const bots = botTable().sort((a, b) => b.diff - a.diff);
     html += `<section class="sect card"><h2>Beat the bot</h2>
-      <p>Each bot drafted from your slot and always took whatever the Vegas lines rated highest. On draft day the bots projected ${D.bots.map((b) => b.reduce((a, [t, sd]) => a + lineValue(t, sd), 0)).join(', ')} in draft order.</p>
+      <p>Each bot drafted from your slot and always took whatever the Vegas lines rated highest. On draft day the bots projected ${D.bots.map((b) => Math.round(b.reduce((a, [t, sd]) => a + lineValue(t, sd), 0))).join(', ')} in draft order.</p>
       <div><div class="botrow bhd"><span class="colhead">Player</span><span class="colhead num">You</span><span class="colhead num">Bot</span><span class="colhead num">+/−</span></div>
       ${bots.map((b) => `<button type="button" class="botrow" data-bot="${b.s}" aria-expanded="${state.botOpen === b.s}">
         <span class="nm"><i class="dot" style="${pc(b.s)}"></i><b>${esc(b.name)}</b></span>
@@ -1191,7 +1193,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const beaten = allPicks.filter((k) => k.pts < ghost.pts).length;
     html += `<section class="sect card"><h2>The pick nobody made</h2>
       <p>${ghost.pts ? `<b>${ghost.team} ${ghost.side}</b> (${esc(TEAMS[ghost.team].city)} ${ghost.side === 'W' ? 'wins' : 'losses'}) would have ${ghost.pts} point${ghost.pts === 1 ? '' : 's'} by now, more than ${beaten} of the 30 picks you made.`
-        : `<b>${ghost.team} ${ghost.side}</b> (${esc(TEAMS[ghost.team].city)} ${ghost.side === 'W' ? 'wins' : 'losses'}) was worth ${lineValue(ghost.team, ghost.side)} by the Vegas lines and nobody took it. We'll see who regrets that.`}</p></section>`;
+        : `<b>${ghost.team} ${ghost.side}</b> (${esc(TEAMS[ghost.team].city)} ${ghost.side === 'W' ? 'wins' : 'losses'}) was worth ${lineValue(ghost.team, ghost.side).toFixed(1)} by the Vegas lines and nobody took it. We'll see who regrets that.`}</p></section>`;
 
     if (FINALS.length) {
       const steal = allPicks.reduce((a, b) => (b.vs > a.vs ? b : a));
@@ -1202,7 +1204,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <p class="note">Measured against each pick's Vegas line, prorated to games played.</p></section>`;
     }
     html += `<section class="sect card"><h2>How this works</h2>
-      <p>Results and live scores come from ESPN. Preseason lines are ${esc(D.meta.linesSource)}; "vs Vegas" grades every pick against those. Title odds come from ${(D.meta.model.simsNow || 12000).toLocaleString()} simulations of the rest of the season, using each team's current win total from Kalshi's betting market, taken each morning. If the market is unavailable, each team's preseason line blended with its record stands in.</p>
+      <p>Results and live scores come from ESPN. Preseason lines are ${esc(D.meta.linesSource)}; "vs Vegas" grades every pick against those, scaled down slightly because the posted lines add up to ${Object.values(TEAMS).reduce((a, t) => a + t.line, 0).toLocaleString()} wins and a season only has 1,230. The bots draft from the lines as posted. Title odds come from ${(D.meta.model.simsNow || 12000).toLocaleString()} simulations of the rest of the season, using each team's current win total from Kalshi's betting market, taken each morning. If the market is unavailable, each team's preseason line blended with its record stands in.</p>
       <p class="note">Standings refresh every 15 minutes during game hours; scores on this page update every 30 seconds while games are on.</p></section>`;
     $('view-draft').innerHTML = html;
   }
@@ -1245,6 +1247,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const rival = OWN[side === 'W' ? 'L' : 'W'][team];
     const next = nextGames(team, 3);
     const lineTxt = side === 'W' ? `${TEAMS[team].line} wins` : `${TEAMS[team].line} wins, so ${82 - TEAMS[team].line} losses`;
+    const fairTxt = TEAMS[team].fair ? ` Scaled so all 30 lines add up to a real season, that's ${lineValue(team, side).toFixed(1)} ${side === 'W' ? 'wins' : 'losses'}.` : '';
     openSheet(`<div class="sh-head"><div><h2 class="sh-title" id="sheetTitle">${teamChip(team)}${sideTag(side)}</h2>
         <p class="sh-sub">${esc(TEAMS[team].city)} ${esc(TEAMS[team].name)} ${side === 'W' ? 'wins' : 'losses'} · ${esc(PEOPLE[owner].name)}, pick #${info.overall} (round ${info.round})</p></div>${closeBtn}</div>
       <div class="tiles">
@@ -1253,7 +1256,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <div class="tile"><span>82-game pace</span><b>${k.gp ? Math.round(k.pace) : '–'}</b></div>
         <div class="tile"><span>vs Vegas</span><b>${signed(k.vs)}</b></div>
       </div>
-      <p class="note" style="margin-top:8px">Vegas line: ${lineTxt}.${k.gp ? ` At that rate this pick would have ${(lineValue(team, side) / 82 * k.gp).toFixed(1)} points after ${k.gp} game${k.gp === 1 ? '' : 's'}.` : ''}</p>
+      <p class="note" style="margin-top:8px">Vegas line: ${lineTxt}.${fairTxt}${k.gp ? ` At that rate this pick would have ${(lineValue(team, side) / 82 * k.gp).toFixed(1)} points after ${k.gp} game${k.gp === 1 ? '' : 's'}.` : ''}</p>
       <div class="sh-sec"><h3 class="eyebrow">${log.length > 1 ? `Last ${log.length} games` : log.length ? 'Last game' : 'Games'}</h3>
         ${log.length ? `<div class="log" style="${pc(owner)}">${log.map((g) => `<div class="lgm"><b class="${earned(g) ? 'earned' : ''}">${g.won ? 'W' : 'L'}</b>${g.away ? '@' : ''}${esc(g.opp)}</div>`).join('')}</div>
         <p class="note">Filled squares earned ${esc(PEOPLE[owner].name)} a point.</p>` : '<p class="note">No games yet.</p>'}</div>

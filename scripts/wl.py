@@ -60,7 +60,11 @@ class League:
         self.people = self.draft["slots"]
         self.n = len(self.people)
         self.espn_season = int(self.draft["season"][:4]) + 1  # ESPN names a season by the year it ends
-        self.p0 = {t: self.lines[t] / SEASON_GAMES for t in self.teams}
+        # The posted lines add up to more wins than a season has, which would make W picks look
+        # worse against Vegas and L picks better, so expectations use them scaled to the real total.
+        scale = len(self.teams) * SEASON_GAMES / 2 / sum(self.lines.values())
+        self.fair = {t: self.lines[t] * scale for t in self.teams}
+        self.p0 = {t: self.fair[t] / SEASON_GAMES for t in self.teams}
         self.picks = [[] for _ in self.people]  # (team, side, round, overall pick), in round order
         for r, row in enumerate(self.draft["rounds"]):
             order = range(self.n) if r % 2 == 0 else range(self.n - 1, -1, -1)
@@ -128,7 +132,7 @@ class League:
     def teams_json(self):
         return {
             t: {"city": self.info[t]["city"], "name": self.info[t]["name"], "color": self.info[t]["color"],
-                "alt": self.info[t]["altColor"], "line": self.lines[t]}
+                "alt": self.info[t]["altColor"], "line": self.lines[t], "fair": round(self.fair[t], 3)}
             for t in self.teams
         }
 
@@ -156,11 +160,8 @@ def fit_strengths(league, games, target, n_games):
 
 def calibrate(league, games):
     """Win rates against an average team under which these (away, home) games reproduce the
-    preseason lines. The posted lines add up to more wins than a season has, so they are
-    scaled down to the real total first."""
-    nt = len(league.teams)
-    scale = nt * SEASON_GAMES / 2 / sum(league.lines.values())
-    target = np.array([league.lines[t] * scale for t in league.teams])
+    preseason lines, scaled to a real season's total (League.fair)."""
+    target = np.array([league.fair[t] for t in league.teams])
     rates, miss = fit_strengths(league, games, target, SEASON_GAMES)
     assert miss < 0.01, "calibration did not converge"
     return rates
@@ -246,7 +247,8 @@ def lead_changes(pts, games=None):
 
 
 def vegas_bots(league):
-    """Each slot's bot takes the highest Vegas value left; ties go to the better juice."""
+    """Each slot's bot takes the highest Vegas value left on the board as posted, the way a
+    person reading the lines would; ties go to the better juice."""
     def implied(o):
         return 100 / (o + 100) if o > 0 else -o / (-o + 100)
 

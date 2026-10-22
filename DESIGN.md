@@ -33,20 +33,22 @@ The numbers in the sketches are made up. They describe one mid-January day, abou
 
 | | Projected points | VegasBot from the same slot |
 |---|---|---|
-| Brian | 299 | 298 |
-| Matt | 299 | 298 |
-| Ryan | 297 | 301 |
-| Nick | 295 | 297 |
-| Asaf | 295 | 295 |
+| Matt | 300.1 | 298.3 |
+| Ryan | 296.5 | 298.1 |
+| Brian | 296.1 | 298.3 |
+| Asaf | 294.5 | 294.5 |
+| Nick | 293.7 | 295.7 |
+
+Projections use the lines scaled to a real season (see Wins above Vegas). On the lines as posted they were Brian 299, Matt 299, Ryan 297, Nick 295, Asaf 295, and the bots 298, 298, 301, 297, 295 in the same order.
 
 The group drafted 29 of the 30 options the lines valued most. The exception is Utah L (worth 44.5); Portland L (40.5) went in its place.
 
 ## Metrics
 
 - **Points:** wins on W picks + losses on L picks.
-- **Wins above Vegas:** points minus each pick's preseason line, prorated to its games played. A W pick expects line/82 per game; an L pick expects (82 - line)/82.
-- **VegasBot:** for each draft slot, a bot that drafts in the same snake order and always takes the highest-value pick left by the lines. It is scored on real results all season. Ties in value are broken by the over/under juice.
-- **Title odds:** about 12,000 simulations of the remaining schedule. Each team's preseason strength is calibrated so the model reproduces its Vegas line over the actual schedule; it then blends with the team's record, with the line counting as 25 games. Each simulation first draws how good every team really is from that uncertainty, so the odds aren't overconfident (preseason they come out at 17-25% for everyone). Games with a posted DraftKings spread (in ESPN's feed) use the spread. The same simulations pick tonight's "biggest game": the one whose result moves title odds most.
+- **Wins above Vegas:** points minus each pick's preseason line, prorated to its games played. A W pick expects line/82 per game; an L pick expects (82 - line)/82. The posted lines add up to 1,242 wins but a season has 1,230, which would make W picks look worse and L picks better, so every line is first scaled by 1,230/1,242.
+- **VegasBot:** for each draft slot, a bot that drafts in the same snake order and always takes the highest-value pick left by the lines as posted, the way a person reading them would. It is scored on real results all season. Ties in value are broken by the over/under juice.
+- **Title odds:** about 12,000 simulations of the remaining schedule. Each team's strength comes from its current win total on Kalshi's betting market, snapshotted each morning before the first tip. Without a market snapshot, the preseason strength is calibrated so the model reproduces its scaled Vegas line over the actual schedule; it then blends with the team's record, with the line counting as 25 games. Each simulation first draws how good every team really is from that uncertainty, so the odds aren't overconfident (preseason they come out at 17-25% for everyone). Games with a posted DraftKings spread (in ESPN's feed) use the spread. The same simulations pick tonight's "biggest game": the one whose result moves title odds most.
 
 ## Screens
 

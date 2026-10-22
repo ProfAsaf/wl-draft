@@ -211,6 +211,11 @@ h1, h2, h3, p { margin: 0; }
 .pchip b { font-family: var(--font-display); font-size: 15px; }
 .pchip.you { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .pchip.got { background: var(--ink); color: var(--bg); }
+.pchip .via {
+  font-style: normal; font-family: var(--font-display); font-size: 12.5px; font-weight: 700; letter-spacing: 0.03em;
+  padding: 0 4px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--ink-2);
+}
+.pchip.got .via { border-color: currentColor; color: inherit; }
 .nobody { font-size: 13px; color: var(--muted); }
 .preview { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .prev-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 14px; }
@@ -543,12 +548,14 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return rows.sort((a, b) => a.rank - b.rank || b.vs - a.vs);
   }
 
-  function outcome(winner, loser) {
-    const pts = new Array(NP).fill(0);
-    if (OWN.W[winner] != null) pts[OWN.W[winner]] += 1;
-    if (OWN.L[loser] != null) pts[OWN.L[loser]] += 1;
-    return pts;
+  // The picks that score if `winner` beats `loser`, per person: a W pick on the winner, an L pick on the loser.
+  function outcomePicks(winner, loser) {
+    const picks = PEOPLE.map(() => []);
+    if (OWN.W[winner] != null) picks[OWN.W[winner]].push(winner + ' W');
+    if (OWN.L[loser] != null) picks[OWN.L[loser]].push(loser + ' L');
+    return picks;
   }
+  const outcome = (winner, loser) => outcomePicks(winner, loser).map((p) => p.length);
 
   function pointsOn(day) {
     const pts = new Array(NP).fill(0);
@@ -598,8 +605,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const st = stakes(g);
       const a = st.away[me], h = st.home[me];
       if (!a && !h) continue;
-      if (a && h) { needs.push({ g, team: null, pts: Math.min(a, h) }); max += Math.max(a, h); continue; }
-      needs.push({ g, team: a ? g.away : g.home, pts: a || h });
+      if (a && h) { needs.push({ g, team: null, pts: Math.min(a, h), picks: [] }); max += Math.max(a, h); continue; }
+      const [win, lose] = a ? [g.away, g.home] : [g.home, g.away];
+      needs.push({ g, team: win, pts: a || h, picks: outcomePicks(win, lose)[me] });
       max += a || h;
     }
     return { needs, max };
@@ -666,7 +674,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return `<span class="tm"><i class="sw" style="--tc:${color}"></i>${esc(t)}</span>`;
   };
   const sideTag = (side) => `<span class="side">${side}</span>`;
-  const personChip = (s, v, got) => `<span class="pchip${s === state.me ? ' you' : ''}${got ? ' got' : ''}" style="${pc(s)}"><i></i>${s === state.me ? 'You' : esc(PEOPLE[s].name)} <b>+${v}</b></span>`;
+  const personChip = (s, picks, got) => `<span class="pchip${s === state.me ? ' you' : ''}${got ? ' got' : ''}" style="${pc(s)}"><i></i>${s === state.me ? 'You' : esc(PEOPLE[s].name)}${picks.map((p) => ` <em class="via">${esc(p)}</em>`).join('')} <b>+${picks.length}</b></span>`;
   const spreadText = (g) => {
     if (g.spread == null) return '';
     if (g.spread === 0) return 'Pick’em';
@@ -767,7 +775,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const { needs, max } = myNight(state.me);
       const head = needs.length ? `Up to +${max} for you` : left ? 'Nothing riding on it for you' : 'All games final';
       body = `<div class="prev-head"><b>Today</b><span class="note">${esc(head)}</span></div>`;
-      body += needs.map(({ g, team, pts }) => `<div class="prev-row"><span>${teamChip(g.away)} <span class="note">@</span> ${teamChip(g.home)} <span class="note">${team ? `need ${esc(team)} (+${pts})` : `+${pts} either way`}</span></span>
+      body += needs.map(({ g, team, pts, picks }) => `<div class="prev-row"><span>${teamChip(g.away)} <span class="note">@</span> ${teamChip(g.home)} <span class="note">${team ? `need ${esc(team)} (${esc(picks.join(', '))})` : `+${pts} either way`}</span></span>
         <span class="when">${g.state === 'live' && g.score ? `${g.score[0]}–${g.score[1]}` : esc(fmtTime.format(new Date(g.tip)))}</span></div>`).join('');
     } else {
       const big = bigGame();
@@ -821,16 +829,16 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const lead = (side) => g.score && g.state !== 'pre' && g.score[side] > g.score[1 - side];
     const teamRow = (t, side) => `<div class="tl${lead(side) ? ' lead' : ''}">${teamChip(t)}<span class="tn">${esc(TEAMS[t].city)} ${esc(TEAMS[t].name)}</span>
       <span class="sc">${g.score && g.state !== 'pre' ? g.score[side] : ''}</span></div>`;
-    const ocRow = (t, pts, won) => {
-      const who = pts.flatMap((v, s) => (v ? [personChip(s, v, won)] : []));
-      return `<div class="oc"><span>${esc(t)} win</span><div class="chips">${who.length ? who.join('') : '<span class="nobody">Nobody</span>'}</div></div>`;
+    const ocRow = (winner, loser, won) => {
+      const who = outcomePicks(winner, loser).flatMap((p, s) => (p.length ? [personChip(s, p, won)] : []));
+      return `<div class="oc"><span>${esc(winner)} win</span><div class="chips">${who.length ? who.join('') : '<span class="nobody">Nobody</span>'}</div></div>`;
     };
     const tags = [big ? `<span class="tag big">Biggest game · moves odds ${Math.max(1, Math.round(g.leverage))} pts</span>` : '', st.tag && st.tag !== 'No stakes' ? `<span class="tag">${st.tag}</span>` : '']
       .filter(Boolean).join('');
     return `<article class="game card${mine ? ' mine' : ''}">
       <div class="gtop"><div class="tags">${tags || (st.tag ? `<span class="tag">${st.tag}</span>` : '')}</div>${gameStatus(g)}</div>
       <div class="teams">${teamRow(g.away, 0)}${teamRow(g.home, 1)}</div>
-      ${ocRow(g.away, st.away, done && !homeWon)}${ocRow(g.home, st.home, done && homeWon)}
+      ${ocRow(g.away, g.home, done && !homeWon)}${ocRow(g.home, g.away, done && homeWon)}
     </article>`;
   }
 
@@ -853,8 +861,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     }
     if (state.me != null && state.me >= 0) {
       const { needs, max } = myNight(state.me);
+      const why = needs.filter((n) => n.team).map((n) => `${n.team} for your ${andList(n.picks)}`);
       html += `<div class="need card"><b>${needs.length ? `You need ${andList(needs.map((n) => n.team || 'either'))}` : 'Nothing left riding for you tonight'}</b>
-        <span>${needs.length ? `Up to +${max} for you tonight` : 'Kick back and root for chaos.'}</span></div>`;
+        <span>${needs.length ? `Up to +${max} tonight${why.length ? ': ' + esc(why.join(', ')) : ''}` : 'Kick back and root for chaos.'}</span></div>`;
     }
     html += list.map((g) => gameCard(g, g === big)).join('');
     if (liveOk === false) html += '<p class="note">Live scores are unavailable right now. Finals still arrive within about 15 minutes.</p>';

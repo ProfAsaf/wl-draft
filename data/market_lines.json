@@ -1,0 +1,37 @@
+{
+ "source": "Kalshi win-total markets (KXNBAWINS), each team's 50% point",
+ "snapshots": {
+  "2026-10-22": {
+   "ATL": 45.9,
+   "BKN": 24.7,
+   "BOS": 52.4,
+   "CHA": 36.8,
+   "CHI": 29.6,
+   "CLE": 49.6,
+   "DAL": 33.4,
+   "DEN": 49.5,
+   "DET": 50.0,
+   "GSW": 35.3,
+   "HOU": 53.2,
+   "IND": 47.2,
+   "LAC": 30.2,
+   "LAL": 49.1,
+   "MEM": 32.6,
+   "MIA": 44.8,
+   "MIL": 26.3,
+   "MIN": 50.8,
+   "NOP": 30.0,
+   "NYK": 49.8,
+   "OKC": 63.4,
+   "ORL": 44.6,
+   "PHI": 51.6,
+   "PHX": 36.2,
+   "POR": 45.2,
+   "SAC": 22.2,
+   "SAS": 58.8,
+   "TOR": 47.8,
+   "UTA": 38.4,
+   "WAS": 38.7
+  }
+ }
+}

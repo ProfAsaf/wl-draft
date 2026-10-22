@@ -222,6 +222,8 @@ def build(lg, season, current_day):
             "vegas": np.round(vegas, 2).tolist(),
             "odds": [history["odds"][d] for d in days[:complete + 1]],
             "rank": wl.ranks(pts, played).tolist(),
+            "pct": [[round(p / g, 3) if g else None for p, g in zip(p_row, g_row)]
+                    for p_row, g_row in zip(pts.tolist(), played.tolist())],
         },
         "oddsNow": [round(float(x), 4) for x in credit.mean(axis=0)],
         "projNow": [round(float(x), 1) for x in totals.mean(axis=0)],

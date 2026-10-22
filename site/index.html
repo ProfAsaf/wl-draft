@@ -229,7 +229,7 @@ h1, h2, h3, p { margin: 0; }
 .ahead-list div:first-child { border-top: 0; }
 
 /* Race */
-.seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: var(--surface); border-radius: 12px; padding: 4px; gap: 4px; }
 .seg button { min-height: 38px; border-radius: 9px; font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--ink-2); text-align: center; }
 .seg button[aria-selected="true"] { background: var(--surface-2); color: var(--ink); }
 .mhelp { font-size: 13px; color: var(--muted); }
@@ -483,7 +483,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   let pollTimer = 0;
   const extra = new Map();   // finals from days data.json hasn't recorded yet, fetched from ESPN
   const filled = new Set();  // those days, once every game on them is final
-  const state = { tab: 'standings', me: null, expanded: null, head: 0, metric: 'vegas', focus: null, scrub: null, botOpen: null };
+  const state = { tab: 'standings', me: null, expanded: null, head: 0, metric: 'pct', focus: null, scrub: null, botOpen: null };
   const pc = (s) => `--pc:var(--p${s + 1})`;
 
   function setData(data) {
@@ -878,9 +878,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
   /* ---------- race chart ---------- */
   const METRICS = [
+    { key: 'pct', label: 'Pct', help: 'Winning percentage, points per game your teams have played: what the standings rank by. The first days swing wildly, so the chart zooms in on recent weeks.' },
     { key: 'vegas', label: 'vs Vegas', help: 'Wins above or below what the preseason lines expected by now. Zero is exactly on pace.' },
     { key: 'points', label: 'Points', help: 'Total points: wins on W picks plus losses on L picks.' },
-    { key: 'odds', label: 'Title odds', help: 'Chance to finish first, re-simulated after every day of games.' },
+    { key: 'odds', label: 'Odds', help: 'Chance to finish first, re-simulated after every day of games.' },
     { key: 'rank', label: 'Rank', help: 'Place in the standings after each day, ranked by Pct like the front page.' },
   ];
 
@@ -891,7 +892,21 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
   }
 
+  const pct3 = (v) => (v == null ? '–' : v >= 1 ? '1.000' : v.toFixed(3).slice(1));
+
   function chartSpec(metric) {
+    if (metric === 'pct') {
+      // Zoom on the later part of the season so far; the wild first days get clamped to the edges.
+      const vals = D.series.pct;
+      const settled = vals.slice(Math.max(1, Math.floor(vals.length / 4))).flat().filter((v) => v != null);
+      const pool = settled.length ? settled : [0.5];
+      const step = niceStep(Math.max(Math.max(...pool) - Math.min(...pool), 0.1) / 4);
+      const bottom = Math.max(0, Math.floor((Math.min(...pool) - 0.01) / step) * step);
+      const top = Math.min(1, Math.ceil((Math.max(...pool) + 0.01) / step) * step);
+      const ticks = [];
+      for (let v = bottom; v <= top + 1e-9; v += step) ticks.push(Number(v.toFixed(6)));
+      return { vals, top, bottom, ticks, tick: pct3, val: pct3, clamp: true };
+    }
     const S = D.series[metric];
     const vals = metric === 'odds' ? S.map((r) => r.map((v) => v * 100)) : S;
     const flat = vals.flat();
@@ -925,7 +940,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const m = { l: 34, r: 100, t: 10, b: 24 };  // the right margin holds the end labels
     const pw = W - m.l - m.r, ph = H - m.t - m.b;
     const x = (i) => m.l + (i / (N - 1)) * pw;
-    const y = (v) => m.t + ((spec.top - v) / (spec.top - spec.bottom)) * ph;
+    const y = (v) => m.t + ((spec.top - (spec.clamp ? clamp(v, spec.bottom, spec.top) : v)) / (spec.top - spec.bottom)) * ph;
     let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(METRICS.find((k) => k.key === state.metric).label)} by day for all five players">`;
     for (const t of spec.ticks) {
       svg += `<line class="${spec.zero && t === 0 ? 'zl' : 'gl'}" x1="${m.l}" x2="${m.l + pw}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
@@ -939,21 +954,33 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     });
     const dimmed = (s) => (state.focus != null && state.focus !== s ? ' dim' : '');
     for (let s = 0; s < NP; s++) {
-      const path = spec.vals.map((row, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(row[s]).toFixed(1)}`).join('');
-      svg += `<path class="ln${dimmed(s)}" style="stroke:var(--p${s + 1})" d="${path}"/>`;
+      let path = '', pen = false;  // a day without a value (no games yet) breaks the line
+      spec.vals.forEach((row, i) => {
+        if (row[s] == null) { pen = false; return; }
+        path += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(row[s]).toFixed(1)}`;
+        pen = true;
+      });
+      if (path) svg += `<path class="ln${dimmed(s)}" style="stroke:var(--p${s + 1})" d="${path}"/>`;
     }
     // End labels with leader lines, spaced so they never overlap.
-    const ends = PEOPLE.map((_, s) => ({ s, y: y(spec.vals[N - 1][s]) })).sort((a, b) => a.y - b.y);
+    const ends = [];
+    PEOPLE.forEach((_, s) => {
+      for (let i = N - 1; i >= 0; i--) {
+        if (spec.vals[i][s] != null) { ends.push({ s, i, v: spec.vals[i][s], y: y(spec.vals[i][s]) }); break; }
+      }
+    });
+    ends.sort((a, b) => a.y - b.y);
     const gap = 15;
     ends.forEach((e, k) => { e.ly = Math.max(e.y, k ? ends[k - 1].ly + gap : m.t + 4); });
-    const over = ends[ends.length - 1].ly - (m.t + ph);
+    const over = ends.length ? ends[ends.length - 1].ly - (m.t + ph) : 0;
     if (over > 0) for (let k = ends.length - 1; k >= 0; k--) ends[k].ly = Math.min(ends[k].ly - over, k < ends.length - 1 ? ends[k + 1].ly - gap : Infinity);
     const xe = x(N - 1), xl = xe + 22;
     for (const e of ends) {
-      svg += `<path class="ld${dimmed(e.s)}" d="M${xe + 6},${e.y.toFixed(1)} L${xl - 4},${e.ly.toFixed(1)}"/>`;
+      const xd = x(e.i);
+      svg += `<path class="ld${dimmed(e.s)}" d="M${xd + 6},${e.y.toFixed(1)} L${xl - 4},${e.ly.toFixed(1)}"/>`;
       svg += `<line class="${dimmed(e.s).trim()}" x1="${xl}" x2="${xl + 10}" y1="${e.ly.toFixed(1)}" y2="${e.ly.toFixed(1)}" style="stroke:var(--p${e.s + 1});stroke-width:2;stroke-linecap:round"/>`;
-      svg += `<text class="lbl${dimmed(e.s)}" x="${xl + 14}" y="${(e.ly + 4).toFixed(1)}">${esc(PEOPLE[e.s].name)} <tspan class="v">${esc(spec.val(spec.vals[N - 1][e.s]))}</tspan></text>`;
-      svg += `<circle class="ring${dimmed(e.s)}" cx="${xe.toFixed(1)}" cy="${e.y.toFixed(1)}" r="4" style="fill:var(--p${e.s + 1})"/>`;
+      svg += `<text class="lbl${dimmed(e.s)}" x="${xl + 14}" y="${(e.ly + 4).toFixed(1)}">${esc(PEOPLE[e.s].name)} <tspan class="v">${esc(spec.val(e.v))}</tspan></text>`;
+      svg += `<circle class="ring${dimmed(e.s)}" cx="${xd.toFixed(1)}" cy="${e.y.toFixed(1)}" r="4" style="fill:var(--p${e.s + 1})"/>`;
     }
     svg += `<g id="cross" visibility="hidden"><line class="cx" id="crossLine" y1="${m.t}" y2="${m.t + ph}"/>`;
     for (let s = 0; s < NP; s++) svg += `<circle class="ring" id="crossDot${s}" r="4" style="fill:var(--p${s + 1})"/>`;
@@ -976,8 +1003,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     line.setAttribute('x2', xi);
     for (let s = 0; s < NP; s++) {
       const dot = document.getElementById('crossDot' + s);
+      const v = chart.spec.vals[state.scrub][s];
+      dot.setAttribute('visibility', v == null ? 'hidden' : 'inherit');
+      if (v == null) continue;
       dot.setAttribute('cx', xi);
-      dot.setAttribute('cy', chart.y(chart.spec.vals[state.scrub][s]).toFixed(1));
+      dot.setAttribute('cy', chart.y(v).toFixed(1));
     }
     g.setAttribute('visibility', 'visible');
     renderReadout();
@@ -990,7 +1020,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     if (!el || !chart) return;
     const i = state.scrub == null ? chart.N - 1 : state.scrub;
     const row = chart.spec.vals[i];
-    const order = PEOPLE.map((_, s) => s).sort((a, b) => (state.metric === 'rank' ? row[a] - row[b] : row[b] - row[a]));
+    const key = (s) => (row[s] == null ? -Infinity : state.metric === 'rank' ? -row[s] : row[s]);
+    const order = PEOPLE.map((_, s) => s).sort((a, b) => (key(b) - key(a)) || 0);
     el.innerHTML = `<div class="rd-date">${esc(dayLabel(i))}${state.scrub == null ? ' · latest full day' : ''}</div>
       <div class="rd-items">${order.map((s) => `<span class="ri" style="${pc(s)}"><i></i><b>${esc(chart.spec.val(row[s]))}</b>${esc(PEOPLE[s].name)}</span>`).join('')}</div>`;
   }
@@ -1019,9 +1050,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <h3 class="eyebrow">Moments</h3>${momentsHtml()}`;
       return;
     }
+    const metrics = METRICS.filter((k) => D.series[k.key]);  // an older data.json may lack Pct
+    if (!metrics.some((k) => k.key === state.metric)) state.metric = metrics[0].key;
     const metric = METRICS.find((k) => k.key === state.metric);
     $('view-race').innerHTML = `
-      <div class="seg" role="tablist" aria-label="What to chart">${METRICS.map((k) => `<button type="button" role="tab" aria-selected="${k.key === state.metric}" data-metric="${k.key}">${k.label}</button>`).join('')}</div>
+      <div class="seg" role="tablist" aria-label="What to chart">${metrics.map((k) => `<button type="button" role="tab" aria-selected="${k.key === state.metric}" data-metric="${k.key}">${k.label}</button>`).join('')}</div>
       <p class="mhelp">${esc(metric.help)}</p>
       <div class="legend${state.focus != null ? ' focusing' : ''}" aria-label="Players">${PEOPLE.map((p, s) => `<button type="button" class="lg${state.focus === s ? ' on' : ''}" data-focus="${s}" aria-pressed="${state.focus === s}" style="${pc(s)}"><i></i>${esc(p.name)}</button>`).join('')}</div>
       <div class="chart card" id="chart" tabindex="0" aria-describedby="readout"></div>

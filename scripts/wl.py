@@ -89,6 +89,14 @@ class League:
                     exp[:, s] += (1 - self.p0[team]) * gp[:, j]
         return pts, pts - exp
 
+    def person_games(self, gp):
+        """Games each person's teams have played, per day (rows) and person (columns)."""
+        games = np.zeros((gp.shape[0], self.n))
+        for s, picks in enumerate(self.picks):
+            for team, _, _, _ in picks:
+                games[:, s] += gp[:, self.tidx[team]]
+        return games
+
     def points_matrices(self, games):
         """For (away, home) games: points each person gets if the home team wins (a) or loses (b)."""
         a = np.zeros((len(games), self.n), dtype=np.float32)
@@ -175,16 +183,31 @@ def title_credit(totals):
     return win / win.sum(axis=1, keepdims=True)
 
 
-def ranks(pts):
-    """Standings place per day and person: 1 + the number of people strictly ahead."""
-    return (pts[:, None, :] > pts[:, :, None]).sum(axis=2) + 1
+def ranks(pts, games=None):
+    """Standings place per day and person: 1 + the number of people strictly ahead.
+
+    Without games, ahead means more points. With games (each person's team games played),
+    ahead means a better winning percentage, then more points, as in the site's standings.
+    """
+    if games is None:
+        return (pts[:, None, :] > pts[:, :, None]).sum(axis=2) + 1
+    rate = pts / np.maximum(games, 1)
+    better = rate[:, None, :] > rate[:, :, None]
+    level = (rate[:, None, :] == rate[:, :, None]) & (pts[:, None, :] > pts[:, :, None])
+    return (better | level).sum(axis=2) + 1
 
 
-def lead_changes(pts):
-    """(day index, person) whenever someone new holds the lead alone."""
+def lead_changes(pts, games=None):
+    """(day index, person) whenever someone new holds the lead alone (by winning percentage
+    when games are given, otherwise by points)."""
     changes, cur = [], -1
     for i, row in enumerate(pts[1:], 1):
-        top = np.flatnonzero(row == row.max())
+        if games is None:
+            top = np.flatnonzero(row == row.max())
+        else:
+            rate = row / np.maximum(games[i], 1)
+            top = np.flatnonzero(rate == rate.max())
+            top = top[row[top] == row[top].max()]
         if len(top) == 1 and top[0] != cur:
             changes.append((i, int(top[0])))
             cur = int(top[0])
@@ -212,13 +235,14 @@ def vegas_bots(league):
     return bots
 
 
-def moments(league, pts, games_by_index):
+def moments(league, pts, games_by_index, games=None):
     """Lead changes, 0-for-4-or-worse nights and the season's best night.
 
-    games_by_index maps a day index (1 = the first day of games) to its (away, home) finals.
+    games_by_index maps a day index (1 = the first day of games) to its (away, home) finals;
+    games, if given, is each person's team games played, so the lead goes by winning percentage.
     """
     out, seen = [], set()
-    for i, s in lead_changes(pts):
+    for i, s in lead_changes(pts, games):
         out.append([i, f"{league.people[s]} {'back on top' if s in seen else 'takes the lead'}"])
         seen.add(s)
     if len(pts) < 2:
@@ -234,6 +258,6 @@ def moments(league, pts, games_by_index):
             if played[s] >= 4 and daily[i - 1, s] == 0:
                 out.append([i, f"{league.people[s]} goes 0-for-{played[s]}"])
     best = np.unravel_index(np.argmax(daily), daily.shape)
-    if daily[best] > 0:
+    if daily[best] >= 4:  # a +1 "best night" in week one isn't a moment
         out.append([int(best[0]) + 1, f"{league.people[best[1]]}'s best night: +{int(daily[best])}"])
     return sorted(out)

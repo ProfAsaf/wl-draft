@@ -125,6 +125,7 @@ def build(lg, season, current_day):
             gp[i, h] += 1
             wins[i, h if home_won(g) else a] += 1
     pts, vegas = lg.person_points(wins, gp)
+    played = lg.person_games(gp)  # the standings rank by points per game played
 
     # Right now: every final so far, including tonight's.
     wins_now = np.zeros(nt, dtype=int)
@@ -220,12 +221,12 @@ def build(lg, season, current_day):
             "points": pts.astype(int).tolist(),
             "vegas": np.round(vegas, 2).tolist(),
             "odds": [history["odds"][d] for d in days[:complete + 1]],
-            "rank": wl.ranks(pts).tolist(),
+            "rank": wl.ranks(pts, played).tolist(),
         },
         "oddsNow": [round(float(x), 4) for x in credit.mean(axis=0)],
         "projNow": [round(float(x), 1) for x in totals.mean(axis=0)],
         "bots": wl.vegas_bots(lg),
-        "moments": wl.moments(lg, pts, {i: [(g["away"], g["home"]) for g in gs] for i, gs in by_index.items()}),
+        "moments": wl.moments(lg, pts, {i: [(g["away"], g["home"]) for g in gs] for i, gs in by_index.items()}, played),
     }
     return data, history
 

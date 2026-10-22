@@ -136,7 +136,7 @@ h1, h2, h3, p { margin: 0; }
 /* Standings board */
 .board { overflow: hidden; }
 .board .row, .board .bhead {
-  display: grid; grid-template-columns: 24px minmax(0, 1fr) 50px 40px 48px 30px; align-items: center; column-gap: 6px;
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) 46px 44px 52px; align-items: center; column-gap: 6px;
   padding: 11px 12px; width: 100%;
 }
 .board .bhead { padding-block: 10px 4px; }
@@ -144,15 +144,17 @@ h1, h2, h3, p { margin: 0; }
 .prow + .prow { border-top: 1px solid var(--line); }
 .prow.me { background: var(--you); }
 .num { text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums; }
-.rk { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rk { display: flex; flex-direction: column; line-height: 1.1; font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .nm { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .nm > span { min-width: 0; }
 .nm b { font-weight: 650; font-size: 16px; }
 .nm small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pc); flex: none; display: inline-block; }
 .pts { font-size: 28px; font-weight: 700; line-height: 1; display: inline-block; transform-origin: right center; }
-.last, .odds { font-size: 18px; font-weight: 600; color: var(--ink-2); }
-.mv { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--ink-2); text-align: right; white-space: nowrap; }
+.last { font-size: 18px; font-weight: 600; color: var(--ink-2); }
+.pct { font-size: 18px; font-weight: 700; line-height: 1.1; }
+.pct small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+.rk .mv { margin-top: 2px; font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .youtag {
   font-style: normal; margin-left: 6px; font-family: var(--font-display); font-weight: 700; font-size: 11px; letter-spacing: 0.08em;
   text-transform: uppercase; padding: 1px 5px; border-radius: 4px; background: var(--ink); color: var(--bg); vertical-align: 2px;
@@ -539,14 +541,19 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   function table(rec) {
     const rows = PEOPLE.map((p, s) => {
       const picks = p.picks.map((k) => ({ ...k, ...pickStats(rec, k.team, k.side), owner: s }));
-      return { s, name: p.name, picks, pts: picks.reduce((a, k) => a + k.pts, 0), vs: picks.reduce((a, k) => a + k.vs, 0) };
+      const pts = picks.reduce((a, k) => a + k.pts, 0);
+      const games = picks.reduce((a, k) => a + k.gp, 0);
+      return { s, name: p.name, picks, pts, games, pct: games ? pts / games : 0, vs: picks.reduce((a, k) => a + k.vs, 0) };
     });
+    // Ranked like NBA standings: by winning percentage (points per game your teams have played), then points.
+    const ahead = (o, r) => o.pct > r.pct || (o.pct === r.pct && o.pts > r.pts);
     for (const r of rows) {
-      r.rank = 1 + rows.filter((o) => o.pts > r.pts).length;
-      r.tied = rows.some((o) => o !== r && o.pts === r.pts);
+      r.rank = 1 + rows.filter((o) => ahead(o, r)).length;
+      r.tied = rows.some((o) => o !== r && o.pct === r.pct && o.pts === r.pts);
     }
     return rows.sort((a, b) => a.rank - b.rank || b.vs - a.vs);
   }
+  const fmtPct = (r) => (!r.games ? '–' : r.pts === r.games ? '1.000' : (r.pts / r.games).toFixed(3).slice(1));
 
   // The picks that score if `winner` beats `loser`, per person: a W pick on the winner, an L pick on the loser.
   function outcomePicks(winner, loser) {
@@ -640,13 +647,13 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const second = ROWS.find((r) => r.rank > 1);
     const latest = FINALS[FINALS.length - 1].day;
     if (leaders.length > 1) {
-      out.push(`A tie at the top: ${andList(leaders.map((r) => r.name))} at ${leaders[0].pts}.`);
+      out.push(`A tie at the top: ${andList(leaders.map((r) => r.name))} at ${fmtPct(leaders[0])}.`);
     } else if (second) {
-      const first = leaders[0], gap = first.pts - second.pts;
-      const pack = ROWS.filter((r) => r.pts === second.pts).length > 1;
+      const first = leaders[0];
+      const next = ROWS.filter((r) => r.rank === second.rank).map((r) => r.name);
       const turn = D.moments.find((m) => m[0] === D.series.points.length - 1 && m[1].startsWith(first.name) && /lead|top/.test(m[1]));
-      const them = pack ? 'the pack' : second.name;
-      out.push(turn ? `${first.name} is ${/back/.test(turn[1]) ? 'back on top' : 'in the lead'}, ${gap} clear of ${them}.` : `${first.name} leads ${them} by ${gap}.`);
+      const lead = turn ? `${first.name} is ${/back/.test(turn[1]) ? 'back on top' : 'in the lead'}` : `${first.name} leads`;
+      out.push(`${lead} at ${fmtPct(first)}. ${andList(next)} ${next.length > 1 ? 'are' : 'is'} next at ${fmtPct(second)}.`);
     }
     const worst = botTable().reduce((a, b) => (b.diff < a.diff ? b : a));
     if (worst.diff < 0) out.push(`${worst.name}Bot is beating ${worst.name} by ${-worst.diff}. The robots are coming.`);
@@ -737,12 +744,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const day = DAYCOL.values ? (DAYCOL.values[s] ? '+' + DAYCOL.values[s] : '0') : '–';
     return `<div class="prow${mine ? ' me' : ''}" data-key="p${s}">
       <button type="button" class="row" data-person="${s}" aria-expanded="${open}">
-        <span class="rk">${r.tied ? 'T' : ''}${r.rank}</span>
+        <span class="rk">${r.tied ? 'T' : ''}${r.rank}${mv ? `<span class="mv" aria-label="${mv > 0 ? 'up ' + mv : 'down ' + -mv}">${mv > 0 ? '▲' + mv : '▼' + -mv}</span>` : ''}</span>
         <span class="nm"><i class="dot" style="${pc(s)}"></i><span><b>${esc(r.name)}</b>${mine ? '<em class="youtag">You</em>' : ''}<small>${signed(r.vs)} vs Vegas</small></span></span>
         <span class="num"><span class="pts" data-pts="${s}">${r.pts}</span></span>
         <span class="num last">${day}</span>
-        <span class="num odds">${pct(D.oddsNow[s])}</span>
-        <span class="mv" aria-label="${mv > 0 ? 'up ' + mv : mv < 0 ? 'down ' + -mv : 'no change'}">${mv > 0 ? '▲' + mv : mv < 0 ? '▼' + -mv : ''}</span>
+        <span class="num pct">${fmtPct(r)}<small>${r.pts}-${r.games - r.pts}</small></span>
       </button>
       ${open ? picksHtml(r) : ''}
     </div>`;
@@ -758,7 +764,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <span class="num vs">${signed(k.vs)}</span>
         ${nextCell(k.team)}
       </button>`).join('')}
-      <p class="psum">Projected finish ${Math.round(D.projNow[r.s])}. Draft-day projection was ${paper[r.s]}.</p>
+      <p class="psum">Title odds ${pct(D.oddsNow[r.s])}. Projected finish ${Math.round(D.projNow[r.s])}; draft-day projection was ${paper[r.s]}.</p>
     </div>`;
   }
 
@@ -792,10 +798,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     html += `<button type="button" class="headline" id="headline" aria-label="Show the next headline"><span class="q">${esc(heads[h])}</span>
       <span class="dots" aria-hidden="true">${heads.map((_, i) => `<i class="${i === h ? 'on' : ''}"></i>`).join('')}</span></button>`;
     html += `<div class="board card" id="board">
-      <div class="bhead"><span class="colhead">#</span><span class="colhead">Name</span><span class="colhead num">Pts</span><span class="colhead num">${DAYCOL.label}</span><span class="colhead num">Title</span><span></span></div>
+      <div class="bhead"><span class="colhead">#</span><span class="colhead">Name</span><span class="colhead num">Pts</span><span class="colhead num">${DAYCOL.label}</span><span class="colhead num">Pct</span></div>
       ${ROWS.map(rowHtml).join('')}
     </div>
-    <p class="note">${DAYCOL.label === 'Today' ? 'Today is points from today’s games so far.' : 'Last is points from the last day of games.'} Title is the chance to finish first, from ${(D.meta.model.simsNow || 12000).toLocaleString()} simulated rest-of-seasons. Tap a name to see the picks.</p>`;
+    <p class="note">Ranked by Pct, points per game your six teams have played, so nobody looks better just because their teams have played more. Under it: points and misses. ${DAYCOL.label === 'Today' ? 'Today is points from today’s games so far.' : 'Last is points from the last day of games.'} Tap a name for picks and title odds.</p>`;
     html += tonightPreview();
     $('view-standings').innerHTML = html;
   }
@@ -875,7 +881,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     { key: 'vegas', label: 'vs Vegas', help: 'Wins above or below what the preseason lines expected by now. Zero is exactly on pace.' },
     { key: 'points', label: 'Points', help: 'Total points: wins on W picks plus losses on L picks.' },
     { key: 'odds', label: 'Title odds', help: 'Chance to finish first, re-simulated after every day of games.' },
-    { key: 'rank', label: 'Rank', help: 'Place in the standings after each day.' },
+    { key: 'rank', label: 'Rank', help: 'Place in the standings after each day, ranked by Pct like the front page.' },
   ];
 
   function niceStep(raw) {

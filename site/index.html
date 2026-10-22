@@ -293,6 +293,14 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .sect { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .sect h2 { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.1; }
 .sect p { font-size: 14px; color: var(--ink-2); }
+.recap h2 { font-size: 24px; text-wrap: balance; }
+.recap-lines { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; color: var(--ink-2); }
+.aspire p { font-family: var(--font-display); font-size: 21px; font-weight: 600; line-height: 1.2; color: var(--ink); text-wrap: balance; }
+.vrow { display: grid; grid-template-columns: minmax(0, 1fr) 44px 48px 48px; column-gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.vrow.vhd { border-top: 0; padding-block: 0 2px; }
+.vrow .num { font-size: 18px; font-weight: 600; }
+.vrow .odds { font-weight: 700; color: var(--ink); }
+.vrow .was { color: var(--muted); }
 .botrow { display: grid; grid-template-columns: minmax(0, 1fr) 40px 52px 44px; column-gap: 8px; align-items: center; width: 100%; padding: 8px 0; border-top: 1px solid var(--line); }
 .botrow.bhd { border-top: 0; padding-block: 0 2px; }
 .botrow .num { font-size: 18px; font-weight: 600; }
@@ -764,7 +772,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <span class="num vs">${signed(k.vs)}</span>
         ${nextCell(k.team)}
       </button>`).join('')}
-      <p class="psum">Title odds ${pct(D.oddsNow[r.s])}. Projected finish ${Math.round(D.projNow[r.s])}; draft-day projection was ${paper[r.s]}.</p>
+      <p class="psum">Title odds ${pct(D.oddsNow[r.s])}. ${D.meta.oddsBasis === 'market' ? 'Vegas now projects' : 'Projected finish'} ${Math.round(D.projNow[r.s])}; draft-day projection was ${paper[r.s]}.</p>
     </div>`;
   }
 
@@ -802,8 +810,57 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       ${ROWS.map(rowHtml).join('')}
     </div>
     <p class="note">Ranked by Pct, points per game your six teams have played, so nobody looks better just because their teams have played more. Under it: points and misses. ${DAYCOL.label === 'Today' ? 'Today is points from today’s games so far.' : 'Last is points from the last day of games.'} Tap a name for picks and title odds.</p>`;
-    html += tonightPreview();
+    // Mornings lead with last night's recap; once today's games start, tonight comes first.
+    const started = slate.some((g) => g.state === 'live' || g.state === 'final');
+    html += started ? tonightPreview() + recapCard() : recapCard() + tonightPreview();
+    html += brianCard();
     $('view-standings').innerHTML = html;
+  }
+
+  function recapCard() {
+    const r = D.recap;
+    if (!r) return '';
+    return `<section class="sect card recap"><h3 class="eyebrow">Recap · ${esc(r.label)}</h3><h2>${esc(r.headline)}</h2>
+      <ul class="recap-lines">${r.lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul></section>`;
+  }
+
+  // Nick's request: one line a day for Brian, from where Brian stood when the day began, so it
+  // stays put while tonight's games play out.
+  function brianCard() {
+    const s = PEOPLE.findIndex((p) => p.name === 'Brian');
+    if (s < 0) return '';
+    const today = currentDay();
+    const rec = records(FINALS.filter((g) => g.day < today));
+    const r = table(rec).find((x) => x.s === s);
+    const lines = [
+      'It’s not how you start, Brian. It’s how you finish.',
+      'Today’s affirmation for Brian: “My teams will win basketball games.”',
+      'Deep breaths, Brian. The Race tab is not a heart monitor.',
+      'Defense wins championships, Brian. So do good teams. You have six of those, allegedly.',
+      'Today’s forecast for Brian: a 100% chance of potential.',
+    ];
+    if (r.picks.every((k) => k.side === 'W')) lines.push('Six W picks, zero L picks. Brian chose hope.');
+    const playing = r.picks.filter((k) => slate.some((g) => g.home === k.team || g.away === k.team)).length;
+    if (playing) lines.push(`${playing === 1 ? 'One of Brian’s teams plays' : `${playing} of Brian’s teams play`} today. The universe owes you one, Brian.`);
+    let line = null;
+    if (r.games) {
+      const left = 82 * r.picks.length - r.games;
+      const played = r.picks.filter((k) => k.gp);
+      const best = played.reduce((a, b) => (b.vs > a.vs ? b : a));
+      const worst = played.reduce((a, b) => (b.vs < a.vs ? b : a));
+      const diff = r.pts - D.bots[s].reduce((a, [team, side]) => a + pickStats(rec, team, side).pts, 0);
+      lines.push(`Brian, your teams have ${left} games left. That’s ${left} chances to be great.`);
+      lines.push(`Brian is at ${fmtPct(r)}. Every legend has a ${fmtPct(r)} chapter.`);
+      if (best.w) lines.push(`Brian, the ${TEAMS[best.team].name} are ${best.w}-${best.l}. Be more like the ${TEAMS[best.team].name}.`);
+      if (worst !== best && worst.vs < 0) lines.push(`The ${TEAMS[worst.team].name} are ${worst.w}-${worst.l}. This too shall pass, Brian.`);
+      if (diff < 0) lines.push(`BrianBot is up ${-diff}. Rise up against the machine, Brian.`);
+      if (diff > 0) lines.push(`Brian leads BrianBot by ${diff}. Humanity thanks you, Brian.`);
+      if (r.rank === NP) lines.push('Last place is just first place from a different angle, Brian.');
+      if (r.rank === 2) lines.push('Brian is one spot from the top. Visualize it, Brian.');
+      if (r.rank === 1) line = r.tied ? 'Brian is tied for first. Halfway to glory. Keep going, Brian.' : 'Brian is in first place. The aspiration has become reality. Stay humble, Brian.';
+    }
+    const day = Math.round(Date.parse(today + 'T12:00:00Z') / 864e5);
+    return `<section class="sect card aspire"><h3 class="eyebrow">Daily words of aspiration for Brian</h3><p>${esc(line || lines[day % lines.length])}</p></section>`;
   }
 
   /* FLIP: re-render, then slide rows from where they were to where they are. */
@@ -1040,6 +1097,16 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return `<ol class="moments card">${D.moments.map(([i, text]) => `<li><button type="button" data-day="${i}"><span class="md">${esc(dayLabel(i))}</span><span>${esc(text)}</span></button></li>`).join('')}</ol>`;
   }
 
+  // Ryan's request: who wins, by the betting market's current win totals.
+  function vegasCard() {
+    if (!D.market) return '';
+    const rows = PEOPLE.map((p, s) => ({ s, name: p.name, proj: D.projNow[s], odds: D.oddsNow[s], was: D.series.odds[0][s] })).sort((a, b) => b.odds - a.odds);
+    return `<section class="sect card"><h2>Vegas prediction</h2>
+      <div><div class="vrow vhd"><span class="colhead">Player</span><span class="colhead num">Proj</span><span class="colhead num">Odds</span><span class="colhead num">Draft</span></div>
+      ${rows.map((v) => `<div class="vrow"><span class="nm"><i class="dot" style="${pc(v.s)}"></i><b>${esc(v.name)}</b></span><span class="num">${Math.round(v.proj)}</span><span class="num odds">${pct(v.odds)}</span><span class="num was">${pct(v.was)}</span></div>`).join('')}</div>
+      <p class="note">Odds: chance of finishing first. Proj: expected final points. Both come from each team's win total on Kalshi's betting market (${esc(isoDay(D.market.asOf))}) and ${(D.meta.model.simsNow || 12000).toLocaleString()} simulated seasons; tonight's results count once they're final. Draft: title odds on draft day.</p></section>`;
+  }
+
   function renderRace() {
     const N = D.series.points.length;
     if (N < 2) {
@@ -1047,7 +1114,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       $('view-race').innerHTML = `<div class="sect card"><h2>The race starts tomorrow</h2>
         <p>The chart begins after the first full day of games. It tracks everyone against the Vegas lines, total points, title odds and rank, one point per day.</p>
         <p class="note">On draft day the title odds were ${PEOPLE.map((p, s) => `${esc(p.name)} ${pct(D.series.odds[0][s])}`).join(', ')}.</p></div>
-        <h3 class="eyebrow">Moments</h3>${momentsHtml()}`;
+        ${vegasCard()}<h3 class="eyebrow">Moments</h3>${momentsHtml()}`;
       return;
     }
     const metrics = METRICS.filter((k) => D.series[k.key]);  // an older data.json may lack Pct
@@ -1061,6 +1128,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       <div class="readout card" id="readout" aria-live="polite"></div>
       <p class="note">Drag across the chart to move through the season. Tap a name to pick out one line. Tonight's games join the chart once the day is over.</p>
       <details class="tbl"><summary>Show as a table</summary>${raceTable()}</details>
+      ${vegasCard()}
       <h3 class="eyebrow">Moments</h3>${momentsHtml()}
       ${N >= 3 ? '<button type="button" class="btn ghost" id="replayBtn"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0.5l8 4.5-8 4.5z"/></svg>Replay the season</button>' : ''}`;
     drawChart();
@@ -1134,7 +1202,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <p class="note">Measured against each pick's Vegas line, prorated to games played.</p></section>`;
     }
     html += `<section class="sect card"><h2>How this works</h2>
-      <p>Results and live scores come from ESPN. Preseason lines are ${esc(D.meta.linesSource)}. Title odds come from ${(D.meta.model.simsNow || 12000).toLocaleString()} simulations of the rest of the season, where each team's strength starts at its Vegas line and shifts toward its record as games are played.</p>
+      <p>Results and live scores come from ESPN. Preseason lines are ${esc(D.meta.linesSource)}; "vs Vegas" grades every pick against those. Title odds come from ${(D.meta.model.simsNow || 12000).toLocaleString()} simulations of the rest of the season, using each team's current win total from Kalshi's betting market, taken each morning. If the market is unavailable, each team's preseason line blended with its record stands in.</p>
       <p class="note">Standings refresh every 15 minutes during game hours; scores on this page update every 30 seconds while games are on.</p></section>`;
     $('view-draft').innerHTML = html;
   }

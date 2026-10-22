@@ -6,8 +6,8 @@ Live standings for a five-person NBA draft where each pick is a team's wins or i
 
 - `site/` is the page GitHub Pages serves. It reads `site/data.json` and polls ESPN's scoreboard every 30 seconds while games are on.
 - `scripts/update_data.py` refreshes `site/data.json` from ESPN. GitHub Actions runs it every 15 minutes during game hours (`.github/workflows/update.yml`) and commits the data only when something changed.
-- `scripts/wl.py` holds the scoring and the title-odds model; `scripts/espn.py` reads ESPN.
-- `data/` holds the draft, the preseason lines and team info, plus the season's games and the title-odds history the pipeline maintains.
+- `scripts/wl.py` holds the scoring and the title-odds model; `scripts/espn.py` reads ESPN; `scripts/markets.py` reads each team's current win total from Kalshi's betting market; `scripts/recap.py` writes the daily recap.
+- `data/` holds the draft, the preseason lines and team info, plus the season's games, the daily market win totals and the title-odds history the pipeline maintains.
 - `mockup/` is the clickable design mockup with a sample season (`scripts/make_sample_data.py`).
 - `site/icons/` holds the home-screen icon; `scripts/make_icons.py` redraws it at every size.
 

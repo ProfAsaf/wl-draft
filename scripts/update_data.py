@@ -20,16 +20,22 @@ from datetime import date, datetime, timedelta, timezone
 import numpy as np
 
 import espn
+import markets
+import recap
 import wl
 
 SEASON_FILE = wl.DATA / "season.json"
 HISTORY_FILE = wl.DATA / "history.json"
+MARKET_FILE = wl.DATA / "market_lines.json"
 OUT = wl.ROOT / "site" / "data.json"
 SIMS_HISTORY = 4000   # simulated seasons per finished day, for the odds history
 SIMS_NOW = 12000      # simulated seasons for the current odds and tonight's leverage
 SCHEDULE_REFRESH = timedelta(hours=20)
+MARKET_STALE = timedelta(days=3)  # older market lines than this aren't "current" any more
+MARKET_HOUR = 5  # Eastern; by then the market has digested last night's games
 AHEAD_DAYS = 10
-MODEL = {"priorGames": wl.PRIOR_GAMES, "homeEdge": wl.HOME_EDGE, "simsHistory": SIMS_HISTORY, "simsNow": SIMS_NOW}
+MODEL = {"priorGames": wl.PRIOR_GAMES, "homeEdge": wl.HOME_EDGE, "simsHistory": SIMS_HISTORY, "simsNow": SIMS_NOW,
+         "strengths": "morning market win totals when available, else preseason lines plus record"}
 
 
 def iso(ts):
@@ -87,7 +93,30 @@ def refresh(lg, season, now, full):
     return (current.get("day") or {}).get("date") or today_et.isoformat()
 
 
-def build(lg, season, current_day):
+def refresh_market(lg, market, season, now):
+    """Take one snapshot of the market's win totals per (Eastern) day, in the morning before
+    that day's first tip, so a snapshot dated K prices the games from K on given every result
+    through K-1."""
+    et = now.astimezone(espn.ET)
+    today = et.date().isoformat()
+    if today in market["snapshots"] or et.hour < MARKET_HOUR:
+        return
+    tipped = iso(now)
+    if any(g["state"] == "live" or (g["day"] == today and g["state"] != "off" and (g["state"] == "final" or g["tip"] <= tipped))
+           for g in season["games"].values()):
+        return  # today's games have started; tomorrow morning's snapshot will have them
+    try:
+        lines = markets.win_totals(lg.espn_season, set(lg.teams))
+    except Exception as exc:  # the market being down shouldn't stop the standings
+        print(f"market lines unavailable: {exc}", file=sys.stderr)
+        return
+    if len(lines) == len(lg.teams):
+        market["snapshots"][today] = dict(sorted(lines.items()))
+    else:
+        print(f"market lines incomplete ({len(lines)} teams); skipping", file=sys.stderr)
+
+
+def build(lg, season, current_day, market):
     games = sorted((g for g in season["games"].values() if g["state"] != "off"), key=lambda g: (g["tip"], g["id"]))
     if not games:
         raise SystemExit("no games found; check the ESPN feed")
@@ -151,7 +180,31 @@ def build(lg, season, current_day):
     home_all, away_all, edge_all = lg.index_arrays(schedule)
     day_all = np.array([g["day"] for g in games] + ["9999-12-31"] * len(phantoms))
 
-    # Title odds as they stood at the end of each finished day; computed once per day.
+    # Team strengths for simulating what's left. With market win totals from that time, the
+    # market sets them (it already knows the records, injuries and trades); otherwise the
+    # calibrated preseason lines are blended with the records.
+    snapshots = market["snapshots"]
+
+    def lines_as_of(day_iso):
+        taken = [d for d in snapshots if d <= day_iso]
+        return (max(taken), snapshots[max(taken)]) if taken else (None, None)
+
+    def strength_params(win_row, gp_row, lines_day, lines):
+        if lines is None:
+            return wl.posterior(lg, prior, win_row, gp_row)
+        # The snapshot priced the games from its morning on, given the records through the night
+        # before. Fit to that, so results since then still count when the rest is simulated.
+        wins_then = np.zeros(nt, dtype=int)
+        for g in finals:
+            if g["day"] < lines_day:
+                wins_then[lg.tidx[g["home"] if home_won(g) else g["away"]]] += 1
+        rates = wl.market_strengths(lg, [schedule[c] for c in np.flatnonzero(day_all >= lines_day)], lines, wins_then)
+        p = np.array([rates[t] for t in lg.teams])
+        k = wl.PRIOR_GAMES + gp_row  # the market is at least as sure as preseason line plus record
+        return k * p, k * (1 - p)
+
+    # Title odds as they stood at the end of each finished day; computed once per day, with
+    # the market lines available by the next morning.
     history = read_json(HISTORY_FILE, {"model": MODEL, "odds": {}})
     if history.get("model") != MODEL:
         history = {"model": MODEL, "odds": {}}
@@ -160,7 +213,7 @@ def build(lg, season, current_day):
         if d in history["odds"]:
             continue
         rem = np.flatnonzero(day_all > d)
-        alpha, beta = wl.posterior(lg, prior, wins[i], gp[i])
+        alpha, beta = strength_params(wins[i], gp[i], *lines_as_of((date.fromisoformat(d) + timedelta(days=1)).isoformat()))
         rng = np.random.default_rng(seed_for("history", d, MODEL))
         totals, _ = wl.simulate(rng, pts[i], alpha, beta, home_all[rem], away_all[rem], edge_all[rem],
                                 a_all[rem], b_all[rem], SIMS_HISTORY)
@@ -176,8 +229,11 @@ def build(lg, season, current_day):
             slate_cols[games[k]["id"]] = col
             if "spread" in games[k]:
                 fixed[col] = wl.spread_prob(games[k]["spread"])
-    alpha, beta = wl.posterior(lg, prior, wins_now, gp_now)
-    rng = np.random.default_rng(seed_for("now", current_day, [g["id"] for g in finals],
+    lines_day, lines_now = lines_as_of(current_day)
+    if lines_day and date.fromisoformat(lines_day) < today - MARKET_STALE:
+        lines_day, lines_now = None, None
+    alpha, beta = strength_params(wins_now, gp_now, lines_day, lines_now)
+    rng = np.random.default_rng(seed_for("now", current_day, [g["id"] for g in finals], lines_day,
                                          sorted((games[k]["id"], games[k].get("spread")) for k in rem_idx if k < len(games)), MODEL))
     totals, home = wl.simulate(rng, pts_now, alpha, beta, home_all[rem], away_all[rem], edge_all[rem],
                                a_all[rem], b_all[rem], SIMS_NOW, fixed=fixed)
@@ -202,6 +258,20 @@ def build(lg, season, current_day):
         slate.append(item)
     horizon = (today + timedelta(days=AHEAD_DAYS)).isoformat()
 
+    # The recap covers the latest finished day that had games.
+    ranks = wl.ranks(pts, played)
+    leads = {i: s for i, s in wl.lead_changes(pts, played)}
+    day_recap = None
+    last = max((i for i in by_index if i <= complete), default=0)
+    if last >= 1:
+        took = leads.get(last)
+        led_before = any(s == took for i, s in leads.items() if i < last)
+        por_w, por_gp = int(wins[last, lg.tidx["POR"]]), int(gp[last, lg.tidx["POR"]])
+        day_recap = recap.build(
+            lg, days[last], [g for g in by_index[last] if g.get("score")], pts[last] - pts[last - 1],
+            ranks[last - 1], ranks[last], history["odds"].get(days[last - 1]), history["odds"][days[last]],
+            (took, led_before) if took is not None else None, (por_w, por_gp - por_w))
+
     teams = lg.teams_json()
     for t in teams:
         teams[t]["espn"] = lg.info[t]["espnAbbr"]
@@ -209,7 +279,10 @@ def build(lg, season, current_day):
         "meta": {
             "season": lg.draft["season"], "today": current_day, "model": MODEL,
             "linesSource": f"{lg.lines_doc['source']}, {lg.lines_doc['asOf']}",
+            "oddsBasis": "market" if lines_now else "model",
         },
+        "market": {"source": market["source"], "asOf": lines_day, "lines": lines_now} if lines_now else None,
+        "recap": day_recap,
         "people": lg.people_json(),
         "teams": teams,
         "days": days,
@@ -221,7 +294,7 @@ def build(lg, season, current_day):
             "points": pts.astype(int).tolist(),
             "vegas": np.round(vegas, 2).tolist(),
             "odds": [history["odds"][d] for d in days[:complete + 1]],
-            "rank": wl.ranks(pts, played).tolist(),
+            "rank": ranks.tolist(),
             "pct": [[round(p / g, 3) if g else None for p, g in zip(p_row, g_row)]
                     for p_row, g_row in zip(pts.tolist(), played.tolist())],
         },
@@ -244,11 +317,16 @@ def main():
     now = datetime.now(timezone.utc)
     season = read_json(SEASON_FILE, {"refreshed": None, "games": {}})
     current_day = refresh(lg, season, now, "--full" in sys.argv)
-    data, history = build(lg, season, current_day)
+    market = read_json(MARKET_FILE, {"source": "Kalshi win-total markets (KXNBAWINS), each team's 50% point",
+                                     "snapshots": {}})
+    refresh_market(lg, market, season, now)
+    data, history = build(lg, season, current_day, market)
 
     changed = []
     if write_text_if_changed(SEASON_FILE, season_text(season)):
         changed.append(SEASON_FILE.name)
+    if write_text_if_changed(MARKET_FILE, json.dumps(market, indent=1) + "\n"):
+        changed.append(MARKET_FILE.name)
     if write_text_if_changed(HISTORY_FILE, json.dumps(history, indent=1) + "\n"):
         changed.append(HISTORY_FILE.name)
     digest = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:12]

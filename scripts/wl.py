@@ -133,6 +133,27 @@ class League:
         }
 
 
+def fit_strengths(league, games, target, n_games):
+    """Win rates against an average team under which each team's expected wins over these
+    (away, home) games equal its target. target and n_games are arrays in league.teams
+    order (n_games may be a single number); teams with no games keep their starting value.
+    Returns the rates and the largest miss, in wins."""
+    nt = len(league.teams)
+    home, away, edge = league.index_arrays(games)
+    real = away < nt
+    active = np.broadcast_to(np.asarray(n_games) > 0, (nt,))
+    theta = np.array([logit(league.p0[t]) for t in league.teams] + [0.0])
+    for _ in range(300):
+        p = 1 / (1 + np.exp(-(theta[home] - theta[away] + edge)))
+        expected = np.bincount(home, p, nt) + np.bincount(away[real], 1 - p[real], nt)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            step = np.log(target / expected) - np.log((n_games - target) / (n_games - expected))
+        theta[:nt] += 0.5 * np.where(active, step, 0.0)
+        theta[:nt] -= theta[:nt].mean()
+    miss = float(np.abs(np.where(active, expected - target, 0.0)).max())
+    return {t: 1 / (1 + math.exp(-theta[league.tidx[t]])) for t in league.teams}, miss
+
+
 def calibrate(league, games):
     """Win rates against an average team under which these (away, home) games reproduce the
     preseason lines. The posted lines add up to more wins than a season has, so they are
@@ -140,16 +161,26 @@ def calibrate(league, games):
     nt = len(league.teams)
     scale = nt * SEASON_GAMES / 2 / sum(league.lines.values())
     target = np.array([league.lines[t] * scale for t in league.teams])
-    home, away, edge = league.index_arrays(games)
-    real = away < nt
-    theta = np.array([logit(league.p0[t]) for t in league.teams] + [0.0])
-    for _ in range(300):
-        p = 1 / (1 + np.exp(-(theta[home] - theta[away] + edge)))
-        expected = np.bincount(home, p, nt) + np.bincount(away[real], 1 - p[real], nt)
-        theta[:nt] += 0.5 * (np.log(target / expected) - np.log((SEASON_GAMES - target) / (SEASON_GAMES - expected)))
-        theta[:nt] -= theta[:nt].mean()
-    assert np.abs(expected - target).max() < 0.01, "calibration did not converge"
-    return {t: 1 / (1 + math.exp(-theta[league.tidx[t]])) for t in league.teams}
+    rates, miss = fit_strengths(league, games, target, SEASON_GAMES)
+    assert miss < 0.01, "calibration did not converge"
+    return rates
+
+
+def market_strengths(league, remaining, lines, wins_now):
+    """Win rates for the rest of the season implied by current market win totals.
+
+    lines are final-win totals for every team; they're scaled so the league adds up to a
+    real season (markets run high, like books), then each team's wins so far come off the
+    top, leaving what the market expects from its remaining (away, home) games.
+    """
+    nt = len(league.teams)
+    home, away, _ = league.index_arrays(remaining)
+    n_left = (np.bincount(home, minlength=nt) + np.bincount(away[away < nt], minlength=nt)).astype(float)
+    scale = nt * SEASON_GAMES / 2 / sum(lines[t] for t in league.teams)
+    target = np.array([lines[t] * scale for t in league.teams]) - wins_now
+    target = np.clip(target, 0.5, np.maximum(n_left - 0.5, 0.5))
+    rates, _ = fit_strengths(league, remaining, target, n_left)
+    return rates
 
 
 def posterior(league, prior, wins_row, gp_row):

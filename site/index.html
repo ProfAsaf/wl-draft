@@ -517,6 +517,18 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .recap-art h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.15; }
 .recap-art h4 { margin: 4px 0 0; font-size: 14px; font-weight: 700; }
 .recap-art p { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+/* Writers' takes from Bluesky, newest first */
+.tk { margin-top: 16px; }
+.takes { list-style: none; margin: 4px 0 6px; padding: 0; }
+.takes li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tk-by { display: flex; align-items: center; gap: 8px; min-height: 30px; color: inherit; text-decoration: none; }
+.tk-by img, .tk-by i { flex: none; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: var(--surface-2); }
+.tk-by b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 650; }
+.tk-by span { margin-left: auto; padding-left: 8px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.takes p { margin-top: 4px; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); white-space: pre-line; overflow-wrap: anywhere; }
+.tk-img { display: block; max-width: 100%; max-height: 220px; margin-top: 8px; border-radius: 10px; object-fit: cover; }
+.tk-link { display: block; margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); font-size: 13px; color: var(--ink-2); }
+.tk-likes { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
 .bx-src { margin-top: 12px; }
 .bx-src a, .bx-src a:visited { color: var(--ink-2); }
 
@@ -1727,7 +1739,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const cols = (row) => BOX_COLS.map((k) => (row && labels.includes(k) && row[labels.indexOf(k)] != null ? String(row[labels.indexOf(k)]) : ''));
       players[team] = {
         rows: (s.athletes || []).map((a) => ({
-          name: (a.athlete && (a.athlete.shortName || a.athlete.displayName)) || '',
+          name: (a.athlete && (a.athlete.shortName || a.athlete.displayName)) || '', full: (a.athlete && a.athlete.displayName) || '',
           starter: !!a.starter, dnp: !!a.didNotPlay || !(a.stats && a.stats.length), reason: a.reason || '', stats: cols(a.stats),
         })),
         totals: cols(s.totals),
@@ -1778,7 +1790,6 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const playSide = (p) => sideOf(byId[String(p.team && p.team.id)]);
     const wp = state === 'pre' ? { series: null, ball: null } : winSeries(j.plays || [], playSide, state === 'final');
     // ESPN's highlight clips (the adaptive stream, with the full-size file as a fallback) and its game recap.
-    const https = (u) => (/^https:\/\//.test(u || '') ? u : '');
     const clips = (j.videos || []).map((v) => {
       const src = (v.links && v.links.source) || {};
       return { title: v.headline || '', secs: Number(v.duration) || 0, thumb: https(v.thumbnail),
@@ -1853,11 +1864,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       html += box.failed ? '<p class="note bx-msg">Couldn\'t load the box score from ESPN.</p><button type="button" class="btn ghost" data-box-retry>Try again</button>'
         : '<p class="note bx-msg">Loading the box score…</p>';
     } else {
-      const media = b.clips.length || b.recap;
-      const tabs = [['away', TEAMS[b.away.team].name], ['home', TEAMS[b.home.team].name], ['plays', 'Plays'], ...(media ? [['recap', b.recap ? 'Recap' : 'Video']] : [])];
-      const side = box.side === 'recap' && !media ? 'away' : box.side;
+      const media = b.state !== 'pre' || b.clips.length || b.recap;  // writers' takes once it starts, highlights, the recap
+      const tabs = [['away', TEAMS[b.away.team].name], ['home', TEAMS[b.home.team].name], ['plays', 'Plays'], ...(media ? [['media', 'Media']] : [])];
+      const side = box.side === 'media' && !media ? 'away' : box.side;
       html += `<div class="bx-tabs"><div class="seg bx-seg" role="tablist" aria-label="Box score">${tabs.map(([k, label]) => `<button type="button" role="tab" aria-selected="${k === side}" data-box-side="${k}">${esc(label)}</button>`).join('')}</div></div>`;
-      html += side === 'plays' ? playsHtml(b) : side === 'recap' ? recapHtml(b) : playersHtml(b.players[b[side].team]);
+      html += side === 'plays' ? playsHtml(b) : side === 'media' ? mediaHtml(b) : playersHtml(b.players[b[side].team]);
     }
     html += `<p class="note bx-src">${b && b.state === 'live' ? `Updates every ${BOX_LIVE / 1000} seconds. ` : ''}<a href="https://www.espn.com/nba/game/_/gameId/${encodeURIComponent(box.id)}" target="_blank" rel="noopener">Full game on ESPN ›</a></p>`;
     return html;
@@ -1907,12 +1918,13 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       changed = !b.data;  // a failed refresh keeps the last good box score on screen
       b.failed = !b.data;
     }
-    if (changed && b.side !== 'recap') renderBox();  // never redraw over a highlight that's playing
+    if (changed && b.side !== 'media') renderBox();  // never redraw over a highlight that's playing
     if (b.data && b.data.state === 'live') b.timer = setTimeout(loadBox, BOX_LIVE);
   }
 
   function stopBox() {
     if (box) clearTimeout(box.timer);
+    clearTimeout(takesTimer);
     box = null;
   }
 
@@ -2325,20 +2337,125 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       .split(/\n\s*\n/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
   }
   const clipTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
-  // Highlights play right here (an iPhone streams them at phone quality), then ESPN's recap story.
-  function recapHtml(b) {
+  // The Media tab: highlights that play right here (an iPhone streams them at phone quality), what NBA
+  // writers are saying, and ESPN's recap story. During a game the writers come first.
+  function mediaHtml(b) {
     const i = Math.min(box.clip || 0, Math.max(b.clips.length - 1, 0)), c = b.clips[i];
-    let html = '';
+    let clips = '', recap = '';
     if (c) {
-      html += `<div class="hl"><video id="hlVideo" controls playsinline preload="none"${c.thumb ? ` poster="${esc(c.thumb)}"` : ''}>${c.hls ? `<source src="${esc(c.hls)}" type="application/x-mpegURL">` : ''}${c.mp4 ? `<source src="${esc(c.mp4)}" type="video/mp4">` : ''}</video>
+      clips += `<div class="hl"><video id="hlVideo" controls playsinline preload="none"${c.thumb ? ` poster="${esc(c.thumb)}"` : ''}>${c.hls ? `<source src="${esc(c.hls)}" type="application/x-mpegURL">` : ''}${c.mp4 ? `<source src="${esc(c.mp4)}" type="video/mp4">` : ''}</video>
         <p class="hl-t">${esc(c.title)}</p></div>`;
-      if (b.clips.length > 1) html += `<div class="clips">${b.clips.map((x, j) => `<button type="button" class="clip${j === i ? ' on' : ''}" data-clip="${j}">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ''}<span>${esc(x.title)}</span><em>${clipTime(x.secs)}</em></button>`).join('')}</div>`;
+      if (b.clips.length > 1) clips += `<div class="clips">${b.clips.map((x, j) => `<button type="button" class="clip${j === i ? ' on' : ''}" data-clip="${j}">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ''}<span>${esc(x.title)}</span><em>${clipTime(x.secs)}</em></button>`).join('')}</div>`;
     }
     if (b.recap) {
-      html += `<article class="recap-art"><h3>${esc(b.recap.title)}</h3>${b.recap.paras.map((p) => (p.startsWith('## ') ? `<h4>${esc(p.slice(3))}</h4>` : `<p>${esc(p)}</p>`)).join('')}
+      recap = `<article class="recap-art"><h3>${esc(b.recap.title)}</h3>${b.recap.paras.map((p) => (p.startsWith('## ') ? `<h4>${esc(p.slice(3))}</h4>` : `<p>${esc(p)}</p>`)).join('')}
         <p class="note">${esc(b.recap.source || 'ESPN')} recap, via ESPN.</p></article>`;
     }
-    return html || '<p class="note bx-msg">Highlights show up here during the game, and the recap after it.</p>';
+    const takes = b.state === 'pre' ? '' : takesHtml(box.id);
+    return (b.state === 'live' ? takes + clips : clips + takes + recap)
+      || '<p class="note bx-msg">Highlights show up here during the game, and the recap after it.</p>';
+  }
+
+  /* ---------- takes: what NBA writers post about a game on Bluesky ----------
+     Bluesky's public search is free, needs no key and answers web pages directly. A game's takes are
+     posts from the NBA writers, beat reporters and analysts in writers.json (members of public Bluesky
+     lists of NBA media; scripts/bsky_writers.py) that name either team or one of its two top scorers,
+     from shortly before tip-off until a few hours after it. Replies and posts Bluesky has labeled are
+     left out. The search has no "or", so each name is its own query; a finished game's posts are read
+     once, and while a live game's Media tab is open, new ones are checked for every minute. */
+  const BSKY = 'https://api.bsky.app/xrpc/app.bsky.feed.searchPosts';
+  const TAKES_LIVE = 60e3;
+  const TEAM_SHORT = { CLE: 'Cavs', PHI: 'Sixers', DAL: 'Mavs', MIN: 'Wolves', POR: 'Blazers', NOP: 'Pels', OKC: 'OKC', MEM: 'Grizz' };
+  const ALIAS = { 'Shai Gilgeous-Alexander': 'SGA', 'LeBron James': 'LeBron', 'Giannis Antetokounmpo': 'Giannis', 'Victor Wembanyama': 'Wemby', 'Luka Doncic': 'Luka' };
+  // Surnames too common to search on their own; those players are searched by their whole name.
+  const COMMON = new Set(['Adams', 'Allen', 'Anderson', 'Ball', 'Bridges', 'Brown', 'Carter', 'Davis', 'Edwards', 'Evans', 'Gordon', 'Green',
+    'Harris', 'Hart', 'Hill', 'Holiday', 'Jackson', 'James', 'Johnson', 'Jones', 'King', 'Lee', 'Martin', 'Miller', 'Mitchell', 'Moore', 'Murray',
+    'Porter', 'Robinson', 'Smith', 'Taylor', 'Thomas', 'Thompson', 'Walker', 'Wallace', 'Watson', 'White', 'Williams', 'Wilson', 'Young']);
+  const takesBy = new Map();  // game id -> { posts: uri -> take, done: names already searched back to tip-off, at, busy, failed }
+  let writers = null, takesTimer = 0;  // writers: a promise of the writers' accounts
+  function loadWriters() {
+    writers = writers || fetch('writers.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : Promise.reject(new Error('writers'))))
+      .then((j) => new Set(j.dids)).catch(() => { writers = null; return new Set(); });
+    return writers;
+  }
+  // What to search for: each team's nickname and shorthand, and its two top scorers so far.
+  function takeTerms(b) {
+    const terms = new Set();
+    for (const sd of ['away', 'home']) {
+      const t = b[sd].team, P = b.players[t];
+      terms.add(/\s/.test(TEAMS[t].name) ? `"${TEAMS[t].name}"` : TEAMS[t].name);
+      if (TEAM_SHORT[t]) terms.add(TEAM_SHORT[t]);
+      const pts = (r) => Number(r.stats[BOX_COLS.indexOf('PTS')]) || 0;
+      for (const r of P ? P.rows.filter((x) => !x.dnp).sort((x, y) => pts(y) - pts(x)).slice(0, 2) : []) {
+        const last = lastName(r.name).split(' ')[0];  // "Jaquez Jr." is searched as "Jaquez"
+        terms.add(r.full && (COMMON.has(last) || last.length < 4) ? `"${r.full}"` : last);
+        if (ALIAS[r.full]) terms.add(ALIAS[r.full]);
+      }
+    }
+    return [...terms];
+  }
+  const https = (u) => (/^https:\/\//.test(u || '') ? u : '');  // only secure links and images, here and in ESPN's clips
+  function asTake(p) {
+    const e = p.embed || {}, m = e.media || {};
+    const img = (e.images && e.images[0]) || (m.images && m.images[0]);
+    return {
+      at: p.record.createdAt, name: p.author.displayName || p.author.handle, avatar: https(p.author.avatar), text: p.record.text || '',
+      img: https((img && img.thumb) || e.thumbnail || m.thumbnail), link: (e.external && e.external.title) || (m.external && m.external.title) || '',
+      likes: p.likeCount || 0, url: `https://bsky.app/profile/${encodeURIComponent(p.author.handle)}/post/${encodeURIComponent(p.uri.split('/').pop())}`,
+    };
+  }
+  async function loadTakes() {
+    clearTimeout(takesTimer);
+    const bx = box, b = bx && bx.data;
+    if (!b || bx.side !== 'media' || b.state === 'pre' || document.hidden) return;
+    const id = bx.id;
+    const t = takesBy.get(id) || { posts: new Map(), done: new Set(), at: 0, busy: false, failed: false };
+    takesBy.set(id, t);
+    if (t.busy || (b.state === 'final' && t.final)) return;
+    t.busy = true;
+    const tip = Date.parse(b.tip), since = new Date(tip - 20 * 60e3).toISOString();
+    const until = b.state === 'final' ? new Date(tip + 4 * 3600e3).toISOString() : null;
+    const ids = await loadWriters();
+    let failed = false;
+    await Promise.all(takeTerms(b).map(async (term) => {
+      const back = !t.done.has(term);  // a new name: read its posts back to tip-off; otherwise just the newest
+      let before = until;
+      try {
+        for (let page = 0; page < (back ? 4 : 1); page++) {
+          const q = new URLSearchParams({ q: term, sort: 'latest', since, limit: back ? '100' : '25' });
+          if (before) q.set('until', before);
+          const r = await fetch(`${BSKY}?${q}`);
+          if (!r.ok) throw new Error('Bluesky ' + r.status);
+          const posts = (await r.json()).posts || [];
+          for (const p of posts) {
+            if (!ids.has(p.author.did) || !p.record || p.record.reply || (p.labels && p.labels.length)) continue;
+            t.posts.set(p.uri, asTake(p));
+          }
+          if (posts.length < 100) break;
+          // Earlier posts: Bluesky turns away its own next-page links without a login, so ask again for
+          // posts from before the oldest one so far.
+          before = posts.reduce((m, p) => [m, p.indexedAt, p.record.createdAt].sort()[0], posts[0].indexedAt);
+        }
+        t.done.add(term);
+      } catch (e) { failed = true; }
+    }));
+    t.busy = false;
+    t.failed = failed && !t.posts.size;
+    t.at = Date.now();
+    if (b.state === 'final' && !failed) t.final = true;
+    const el = box === bx && bx.side === 'media' && $('takes');
+    if (el) el.outerHTML = takesHtml(id);  // only the takes: a highlight that's playing keeps playing
+    if (box === bx && b.state === 'live') takesTimer = setTimeout(loadTakes, TAKES_LIVE);
+  }
+  function takesHtml(id) {
+    const t = takesBy.get(id);
+    const list = t ? [...t.posts.values()].sort((x, y) => (x.at < y.at ? 1 : -1)).slice(0, 40) : [];
+    const one = (k) => `<li><a class="tk-by" href="${esc(k.url)}" target="_blank" rel="noopener">${k.avatar ? `<img src="${esc(k.avatar)}" alt="" loading="lazy">` : '<i></i>'}<b>${esc(k.name)}</b><span>${esc(fmtTime.format(new Date(k.at)))}</span></a>
+      <p>${esc(k.text)}</p>${k.img ? `<img class="tk-img" src="${esc(k.img)}" alt="" loading="lazy">` : ''}${k.link ? `<span class="tk-link">${esc(k.link)}</span>` : ''}${k.likes ? `<span class="tk-likes">♥ ${k.likes}</span>` : ''}</li>`;
+    const body = list.length ? `<ol class="takes">${list.map(one).join('')}</ol>`
+      : `<p class="note">${!t || (t.busy && !t.at) ? 'Looking for what NBA writers are saying…' : t.failed ? 'Couldn’t reach Bluesky. Trying again in a minute.' : 'No takes from NBA writers on this game yet.'}</p>`;
+    return `<section class="tk" id="takes"><h3 class="eyebrow">Takes</h3>${body}
+      <p class="note">What NBA writers, beat reporters and analysts are posting on Bluesky about these teams and their top scorers. Tap a name to open the post.</p></section>`;
   }
 
   // Live cards tell their story from each game's play-by-play, fetched in the background about once a
@@ -2682,7 +2799,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       return renderStandings();
     }
     if (t.dataset.box) return openBox(t.dataset.box, t.dataset.from);
-    if (t.dataset.boxSide && box) { box.side = t.dataset.boxSide; return renderBox(); }
+    if (t.dataset.boxSide && box) {
+      box.side = t.dataset.boxSide;
+      renderBox();
+      return loadTakes();  // on the Media tab, what writers are saying
+    }
     if (t.dataset.gchart && box) {
       state.gameChart = t.dataset.gchart;
       store.set('wl-gchart', state.gameChart);
@@ -2809,6 +2930,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       poll();
       refreshData();
       if (box && (!box.data || box.data.state === 'live')) loadBox();
+      if (box) loadTakes();
     }
   });
 

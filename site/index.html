@@ -1392,23 +1392,28 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       stats[s] = { fgm, fga, tpm, tpa, fta: pair('freeThrowsMade-freeThrowsAttempted')[1], reb: Number(v.totalRebounds),
         to: Number(v.totalTurnovers), fb: Number(v.fastBreakPoints), maxLead: Number(v.largestLead) };
     }
-    // Each side's top scorer, and anyone in foul trouble.
-    const stars = [null, null], fouls = [];
+    // Each side's top scorer, starters in foul trouble, and the players whose cold shooting is worth a
+    // mention: starters among their team's three biggest shooters, or anyone taking 15 shots.
+    const stars = [null, null], fouls = [], key = [new Set(), new Set()];
     const at = (r, k) => Number(r.stats[BOX_COLS.indexOf(k)]);
+    const fga = (r) => Number(String(r.stats[BOX_COLS.indexOf('FG')]).split('-')[1]) || 0;
     for (const [team, P] of Object.entries(players)) {
       const s = sideOf(team);
       if (s == null) continue;
-      for (const r of P.rows) {
-        if (r.dnp) continue;
+      const played = P.rows.filter((r) => !r.dnp);
+      for (const r of played) {
         if (!stars[s] || at(r, 'PTS') > stars[s].pts) stars[s] = { name: lastName(r.name), pts: at(r, 'PTS'), reb: at(r, 'REB'), ast: at(r, 'AST') };
-        if (at(r, 'PF') >= 5) fouls.push({ side: s, name: lastName(r.name), pf: at(r, 'PF') });
+        if (r.starter && at(r, 'PF') >= 5) fouls.push({ side: s, name: lastName(r.name), pf: at(r, 'PF') });
       }
+      played.sort((x, y) => fga(y) - fga(x)).forEach((r, i) => {
+        if ((r.starter && i < 3) || fga(r) >= 15) key[s].add(lastName(r.name));
+      });
     }
     const period = Number(h.status && h.status.period) || 0;
     return {
       state: t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre', clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home,
       players, plays, period, pause: pauseOf(h.status), stats: stats[0] && stats[1] ? stats : null, stars, fouls,
-      flow: playFlow(j.plays || [], (p) => sideOf(byId[String(p.team && p.team.id)]), period),
+      flow: playFlow(j.plays || [], (p) => sideOf(byId[String(p.team && p.team.id)]), period, (s, name) => key[s].has(name)),
     };
   }
 
@@ -1549,8 +1554,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
   // The game's flow from its plays: each side's largest deficit and who has scored since, the
   // current run and who scored it, lead changes, the last go-ahead basket, who has scored most this
-  // period, and who has gone cold. sideOf(play) is 0 for the away team, 1 for home.
-  function playFlow(all, sideOf, period) {
+  // period, and which key player has gone cold. sideOf(play) is 0 for the away team, 1 for home;
+  // isKey(side, name) says whether a player's shooting is worth a mention.
+  function playFlow(all, sideOf, period, isKey) {
     const scoring = [];
     let prev = [0, 0];
     for (const p of all) {
@@ -1607,9 +1613,12 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       if (sh.made) r.made++;
       shots[s].set(name, r);
     }
-    const cold = shots.map((m) => {
+    const cold = shots.map((m, s) => {
       let worst = null;
-      for (const [name, r] of m) if (r.att >= 6 && r.made / r.att <= 0.25 && (!worst || r.att - r.made > worst.att - worst.made)) worst = { name, ...r };
+      for (const [name, r] of m) {
+        if (!isKey(s, name) || r.att < (half ? 7 : 9) || r.made / r.att > 0.3) continue;
+        if (!worst || r.att - r.made > worst.att - worst.made) worst = { name, ...r };
+      }
       return worst;
     });
     const thisPeriod = scoring.filter((x) => x.p.period && x.p.period.number === period);
@@ -1770,7 +1779,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const f = facts.filter((x) => x.group === group && !x.taken && !(x.who && used.has(x.who))).sort((x, y) => y.w - x.w)[0];
       if (!f) return false;
       f.taken = true;
-      out.push(f.text);
+      out.push(f);
       if (f.who) used.add(f.who);
       return true;
     };
@@ -1779,7 +1788,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     if (out.length < n) take('who');
     while (out.length < n && take('why'));
     while (out.length < n && take('flow'));
-    return out.slice(0, n).map((t) => t.charAt(0).toUpperCase() + t.slice(1) + '.').join(' ');
+    const order = { flow: 0, why: 1, who: 2 };  // what happened, then why, then who
+    return out.slice(0, n).sort((x, y) => order[x.group] - order[y.group])
+      .map((f) => f.text.charAt(0).toUpperCase() + f.text.slice(1) + '.').join(' ');
   }
 
   // Live cards tell their story from each game's play-by-play, fetched in the background about once a

@@ -201,10 +201,19 @@ h1, h2, h3, p { margin: 0; }
 }
 .tag.big { background: var(--ink); color: var(--bg); }
 .teams { display: flex; flex-direction: column; gap: 4px; }
-.tl { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
-.tl .tn { color: var(--ink-2); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl .sc { font-family: var(--font-display); font-size: 25px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.tl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tl .tn { flex: 1 1 auto; min-width: 0; color: var(--ink-2); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl .sc { flex: none; min-width: 42px; text-align: right; font-family: var(--font-display); font-size: 25px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .tl.lead .sc { color: var(--ink); font-weight: 700; }
+.qs { flex: none; display: flex; }
+.qs i { width: 23px; text-align: right; font-style: normal; font-family: var(--font-display); font-size: 15px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tl.qh { margin-bottom: -4px; }
+.tl.qh .qs i, .tl.qh .sc { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; line-height: 1; color: var(--muted); }
+.gfoot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; min-height: 40px; padding-top: 10px; border-top: 1px solid var(--line); }
+.stars { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; color: var(--ink-2); }
+.stars b { font-family: var(--font-display); font-weight: 700; font-size: 14px; letter-spacing: 0.02em; color: var(--ink); margin-right: 6px; }
+.stars em { font-style: normal; color: var(--muted); }
+.gfoot .more { font-weight: 600; font-size: 13.5px; white-space: nowrap; }
 .oc { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 8px; align-items: center; }
 .oc > span { font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -352,6 +361,37 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .nextlist div:first-child { border-top: 0; }
 .nextlist span:last-child { color: var(--muted); }
 .rival { font-size: 14px; color: var(--ink-2); padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+
+/* Box score sheet */
+.bx-back { min-height: 32px; margin: -4px 0 4px; color: var(--ink-2); }
+.bx-title { flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.bx-title .tm { font-size: 22px; }
+.bx-title .sw { width: 14px; height: 14px; }
+.bx-at { color: var(--muted); font-weight: 600; }
+.sh-sub .gstatus { font-size: 14px; color: var(--ink); vertical-align: -1px; }
+.ls { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 12px; font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+.ls th, .ls td { width: 30px; padding: 3px 0; text-align: right; font-size: 16px; white-space: nowrap; }
+.ls th:first-child { width: auto; text-align: left; }
+.ls th:last-child, .ls td:last-child { width: 44px; }
+.ls thead th { font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); }
+.ls td { color: var(--ink-2); font-weight: 500; }
+.ls td.t { color: var(--ink); font-weight: 700; font-size: 18px; }
+.bx-oc { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.bx-seg { margin-top: 14px; background: var(--surface-2); }
+.bx-seg button[aria-selected="true"] { background: var(--surface); }
+.bx-msg { margin-top: 14px; }
+.bxwrap { margin-top: 8px; }
+.bx { border-collapse: collapse; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.bx th, .bx td { padding: 6px 6px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.bx td { font-family: var(--font-display); font-size: 15.5px; color: var(--ink-2); }
+.bx td:nth-child(3) { color: var(--ink); font-weight: 700; }
+.bx thead th, .bx tr.sub th { font-family: var(--font-display); font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.bx tr.sub th { padding-top: 16px; }
+.bx th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); text-align: left; padding-left: 0; font-weight: 600; }
+.bx tbody th:first-child { max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
+.bx tr.tot th, .bx tr.tot td { color: var(--ink); font-weight: 700; border-bottom: 0; }
+.bx-src { margin-top: 12px; }
+.bx-src a, .bx-src a:visited { color: var(--ink-2); }
 
 /* Replay */
 .race-date { font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1; margin-top: 12px; font-variant-numeric: tabular-nums; }
@@ -531,8 +571,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const rec = {};
     for (const t of Object.keys(TEAMS)) rec[t] = { w: 0, l: 0, log: [] };
     for (const g of finals) {
-      rec[g.home].log.push({ day: g.day, opp: g.away, away: false, won: g.winner === g.home });
-      rec[g.away].log.push({ day: g.day, opp: g.home, away: true, won: g.winner === g.away });
+      rec[g.home].log.push({ id: g.id, day: g.day, opp: g.away, away: false, won: g.winner === g.home });
+      rec[g.away].log.push({ id: g.id, day: g.day, opp: g.home, away: true, won: g.winner === g.away });
     }
     for (const r of Object.values(rec)) {
       r.w = r.log.filter((x) => x.won).length;
@@ -886,24 +926,35 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return `<span class="gstatus">${esc(fmtTime.format(new Date(g.tip)))}${spr ? ` <span class="spr">${esc(spr)}</span>` : ''}</span>`;
   }
 
+  const periodLabel = (i) => (i < 4 ? String(i + 1) : i === 4 ? 'OT' : `${i - 3}OT`);
+
+  // Who scores if `winner` beats `loser`; `won` once it has.
+  function outcomeRow(winner, loser, won) {
+    const who = outcomePicks(winner, loser).flatMap((p, s) => (p.length ? [personChip(s, p, won)] : []));
+    return `<div class="oc"><span>${esc(winner)} win</span><div class="chips">${who.length ? who.join('') : '<span class="nobody">Nobody</span>'}</div></div>`;
+  }
+
   function gameCard(g, big) {
     const st = stakes(g);
     const mine = state.me != null && state.me >= 0 && (st.away[state.me] || st.home[state.me]);
     const done = g.state === 'final' && g.score;
     const homeWon = done && g.score[1] > g.score[0];
     const lead = (side) => g.score && g.state !== 'pre' && g.score[side] > g.score[1 - side];
-    const teamRow = (t, side) => `<div class="tl${lead(side) ? ' lead' : ''}">${teamChip(t)}<span class="tn">${esc(TEAMS[t].city)} ${esc(TEAMS[t].name)}</span>
-      <span class="sc">${g.score && g.state !== 'pre' ? g.score[side] : ''}</span></div>`;
-    const ocRow = (winner, loser, won) => {
-      const who = outcomePicks(winner, loser).flatMap((p, s) => (p.length ? [personChip(s, p, won)] : []));
-      return `<div class="oc"><span>${esc(winner)} win</span><div class="chips">${who.length ? who.join('') : '<span class="nobody">Nobody</span>'}</div></div>`;
-    };
+    // Once the game is on, each row shows points per quarter (all four, plus any overtimes).
+    const per = g.lines ? Math.max(4, g.lines[0].length, g.lines[1].length) : 0;
+    const cells = (f) => Array.from({ length: per }, (_, i) => `<i>${f(i)}</i>`).join('');
+    const teamRow = (t, side) => `<div class="tl${lead(side) ? ' lead' : ''}">${teamChip(t)}<span class="tn">${per ? '' : esc(TEAMS[t].city) + ' '}${esc(TEAMS[t].name)}</span>
+      ${per ? `<span class="qs">${cells((i) => (Number.isFinite(g.lines[side][i]) ? g.lines[side][i] : ''))}</span>` : ''}<span class="sc">${g.score && g.state !== 'pre' ? g.score[side] : ''}</span></div>`;
+    const head = per ? `<div class="tl qh" aria-hidden="true"><span class="tn"></span><span class="qs">${cells(periodLabel)}</span><span class="sc">T</span></div>` : '';
+    const stars = (g.stars || []).map((p, i) => (p ? `<span><b>${[g.away, g.home][i]}</b>${esc(p.name)} <em>${esc(p.line)}</em></span>` : '')).join('');
+    const foot = g.state === 'pre' ? '' : `<button type="button" class="gfoot" data-box="${esc(g.id)}"><span class="stars">${stars}</span><span class="more">Box score ›</span></button>`;
     const tags = [big ? `<span class="tag big">Biggest game · moves odds ${Math.max(1, Math.round(g.leverage))} pts</span>` : '', st.tag && st.tag !== 'No stakes' ? `<span class="tag">${st.tag}</span>` : '']
       .filter(Boolean).join('');
     return `<article class="game card${mine ? ' mine' : ''}">
       <div class="gtop"><div class="tags">${tags || (st.tag ? `<span class="tag">${st.tag}</span>` : '')}</div>${gameStatus(g)}</div>
-      <div class="teams">${teamRow(g.away, 0)}${teamRow(g.home, 1)}</div>
-      ${ocRow(g.away, g.home, done && !homeWon)}${ocRow(g.home, g.away, done && homeWon)}
+      <div class="teams">${head}${teamRow(g.away, 0)}${teamRow(g.home, 1)}</div>
+      ${outcomeRow(g.away, g.home, done && !homeWon)}${outcomeRow(g.home, g.away, done && homeWon)}
+      ${foot}
     </article>`;
   }
 
@@ -1212,10 +1263,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   /* ---------- sheets ---------- */
   let lastFocus = null;
   function openSheet(html, after) {
+    stopBox();
+    if ($('sheet').hidden) lastFocus = document.activeElement;  // not a button inside the sheet being replaced
     $('sheetBody').innerHTML = html;
     $('sheet').hidden = false;
     $('backdrop').hidden = false;
-    lastFocus = document.activeElement;
     requestAnimationFrame(() => {
       $('sheet').classList.add('open');
       $('backdrop').classList.add('open');
@@ -1225,6 +1277,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   }
   function closeSheet() {
     stopReplay();
+    stopBox();
     $('sheet').classList.remove('open');
     $('backdrop').classList.remove('open');
     setTimeout(() => {
@@ -1258,8 +1311,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       </div>
       <p class="note" style="margin-top:8px">Vegas line: ${lineTxt}.${fairTxt}${k.gp ? ` At that rate this pick would have ${(lineValue(team, side) / 82 * k.gp).toFixed(1)} points after ${k.gp} game${k.gp === 1 ? '' : 's'}.` : ''}</p>
       <div class="sh-sec"><h3 class="eyebrow">${log.length > 1 ? `Last ${log.length} games` : log.length ? 'Last game' : 'Games'}</h3>
-        ${log.length ? `<div class="log" style="${pc(owner)}">${log.map((g) => `<div class="lgm"><b class="${earned(g) ? 'earned' : ''}">${g.won ? 'W' : 'L'}</b>${g.away ? '@' : ''}${esc(g.opp)}</div>`).join('')}</div>
-        <p class="note">Filled squares earned ${esc(PEOPLE[owner].name)} a point.</p>` : '<p class="note">No games yet.</p>'}</div>
+        ${log.length ? `<div class="log" style="${pc(owner)}">${log.map((g) => `<button type="button" class="lgm" data-box="${esc(g.id)}" data-from="${team} ${side}" aria-label="${g.won ? 'Win' : 'Loss'} ${g.away ? 'at' : 'against'} ${esc(TEAMS[g.opp].name)}, ${esc(isoDay(g.day))}: box score"><b class="${earned(g) ? 'earned' : ''}">${g.won ? 'W' : 'L'}</b>${g.away ? '@' : ''}${esc(g.opp)}</button>`).join('')}</div>
+        <p class="note">Filled squares earned ${esc(PEOPLE[owner].name)} a point. Tap one for its box score.</p>` : '<p class="note">No games yet.</p>'}</div>
       <div class="sh-sec"><h3 class="eyebrow">Coming up</h3><div class="nextlist">${next.map((n) => `<div><span>${n.away ? '@' : 'vs'} ${esc(TEAMS[n.opp].city)} ${esc(TEAMS[n.opp].name)}</span><span>${n.g && n.g.state === 'live' ? 'Live now' : n.today ? 'Today ' + esc(fmtTime.format(new Date(n.tip))) : esc(fmtWeekday.format(new Date(n.tip)) + ' ' + fmtTime.format(new Date(n.tip)))}</span></div>`).join('') || '<div><span>Nothing in the next 10 days</span></div>'}</div></div>
       ${rival != null ? `<div class="sh-sec"><p class="rival">${esc(PEOPLE[rival].name)} has ${team} ${side === 'W' ? 'L' : 'W'}. Every ${esc(TEAMS[team].name)} game moves a point between ${esc(PEOPLE[owner].name)} and ${esc(PEOPLE[rival].name)}.</p></div>` : ''}`);
   }
@@ -1269,6 +1322,139 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       <p class="sh-sub">This phone remembers your choice. It highlights your row and shows what you need tonight.</p>
       <div class="who-btns" style="margin-top:14px">${PEOPLE.map((p, s) => `<button type="button" data-me="${s}" aria-pressed="${state.me === s}"><i class="dot" style="${pc(s)}"></i>${esc(p.name)}</button>`).join('')}</div>
       <button type="button" class="linkbtn" data-me="-1" style="margin-top:6px">Just browsing</button>`);
+  }
+
+  /* ---------- box scores: fetched from ESPN only when someone taps a game ---------- */
+  const SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=';
+  const BOX_COLS = ['MIN', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TO', 'FG', '3PT', 'FT', 'PF', '+/-'];
+  const boxCache = new Map();  // finished games don't change, so each is fetched once
+  let box = null;              // the box score on screen: { id, from, side, data, failed, timer }
+
+  function parseSummary(j) {
+    const h = j.header && j.header.competitions && j.header.competitions[0];
+    if (!h) throw new Error('no game in the summary');
+    const t = (h.status && h.status.type) || {};
+    const sides = {};
+    for (const c of h.competitors || []) {
+      const team = BY_ESPN[c.team && c.team.abbreviation];
+      if (team) sides[c.homeAway] = { team, score: Number(c.score), lines: periodPoints(c) };
+    }
+    if (!sides.away || !sides.home) throw new Error('unknown teams in the summary');
+    const players = {};
+    for (const p of (j.boxscore && j.boxscore.players) || []) {
+      const team = BY_ESPN[p.team && p.team.abbreviation];
+      const s = p.statistics && p.statistics[0];
+      if (!team || !s) continue;
+      const labels = s.labels || [];
+      const cols = (row) => BOX_COLS.map((k) => (row && labels.includes(k) && row[labels.indexOf(k)] != null ? String(row[labels.indexOf(k)]) : ''));
+      players[team] = {
+        rows: (s.athletes || []).map((a) => ({
+          name: (a.athlete && (a.athlete.shortName || a.athlete.displayName)) || '',
+          starter: !!a.starter, dnp: !!a.didNotPlay || !(a.stats && a.stats.length), reason: a.reason || '', stats: cols(a.stats),
+        })),
+        totals: cols(s.totals),
+      };
+    }
+    return { state: t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre', clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home, players };
+  }
+
+  const dnpWhy = (r) => (/coach/i.test(r) ? 'coach’s decision' : /injur|ill/i.test(r) ? 'injured' : r ? r.toLowerCase() : 'out');
+
+  function playersHtml(P) {
+    const played = P ? P.rows.filter((r) => !r.dnp) : [];
+    if (!played.length) return '<p class="note">Player stats show up once the game starts.</p>';
+    const starters = played.filter((r) => r.starter), bench = played.filter((r) => !r.starter);
+    const head = (label, cls) => `<tr class="${cls}"><th>${label}</th>${BOX_COLS.map((c) => `<th>${c}</th>`).join('')}</tr>`;
+    const row = (r) => `<tr><th scope="row">${esc(r.name)}</th>${r.stats.map((v) => `<td>${esc(v)}</td>`).join('')}</tr>`;
+    const out = P.rows.filter((r) => r.dnp);
+    return `<div class="tblwrap bxwrap"><table class="bx"><thead>${head(starters.length ? 'Starters' : 'Players', '')}</thead><tbody>
+      ${(starters.length ? starters : played).map(row).join('')}
+      ${starters.length && bench.length ? head('Bench', 'sub') + bench.map(row).join('') : ''}
+      <tr class="tot"><th scope="row">Team</th>${P.totals.map((v) => `<td>${esc(v)}</td>`).join('')}</tr></tbody></table></div>
+      ${out.length ? `<p class="note">Did not play: ${out.map((r) => `${esc(r.name)} (${esc(dnpWhy(r.reason))})`).join(', ')}.</p>` : ''}`;
+  }
+
+  function boxHtml() {
+    const g = slate.find((x) => x.id === box.id) || FINALS.find((x) => x.id === box.id) || {};
+    const b = box.data;
+    const away = b ? b.away.team : g.away, home = b ? b.home.team : g.home;
+    if (!away || !home) return `<div class="sh-head"><h2 class="sh-title" id="sheetTitle">Box score</h2>${closeBtn}</div><p class="note">Couldn't find this game.</p>`;
+    const on = b && b.state !== 'pre';
+    // Until ESPN answers, show what the scoreboard already knows.
+    const now = b || { state: g.state, clock: g.clock, tip: g.tip };
+    const score = on ? [b.away.score, b.home.score] : !b && g.score && g.state !== 'pre' ? g.score : null;
+    const pts = (i) => (score ? `<span>${score[i]}</span>` : '');
+    const status = now.state === 'live' ? `<span class="gstatus"><i class="live-dot"></i>${esc(now.clock || 'Live')}</span>` : now.state === 'final' ? 'Final' : now.tip ? esc(fmtTime.format(new Date(now.tip))) : '';
+    const when = g.day ? isoDay(g.day) : b ? fmtHeader.format(new Date(b.tip)) : '';
+    const [fromTeam, fromSide] = (box.from || '').split(' ');
+    let html = box.from ? `<button type="button" class="linkbtn bx-back" data-team="${esc(fromTeam)}" data-side="${esc(fromSide)}">‹ ${esc(box.from)}</button>` : '';
+    html += `<div class="sh-head"><div><h2 class="sh-title bx-title" id="sheetTitle">${teamChip(away)}${pts(0)}<span class="bx-at">${score ? '–' : '@'}</span>${pts(1)}${teamChip(home)}</h2>
+      <p class="sh-sub">${[status, esc(when)].filter(Boolean).join(' · ')}</p></div>${closeBtn}</div>`;
+    if (on) {
+      const n = Math.max(4, b.away.lines.length, b.home.lines.length);
+      const row = (sd) => `<tr><th>${teamChip(b[sd].team)}</th>${Array.from({ length: n }, (_, i) => `<td>${Number.isFinite(b[sd].lines[i]) ? b[sd].lines[i] : ''}</td>`).join('')}<td class="t">${b[sd].score}</td></tr>`;
+      html += `<div class="tblwrap"><table class="ls"><thead><tr><th></th>${Array.from({ length: n }, (_, i) => `<th>${periodLabel(i)}</th>`).join('')}<th>T</th></tr></thead>
+        <tbody>${row('away')}${row('home')}</tbody></table></div>`;
+    }
+    const done = b && b.state === 'final';
+    const homeWon = done && b.home.score > b.away.score;
+    html += `<div class="bx-oc">${outcomeRow(away, home, done && !homeWon)}${outcomeRow(home, away, done && homeWon)}</div>`;
+    if (!b) {
+      html += box.failed ? '<p class="note bx-msg">Couldn\'t load the box score from ESPN.</p><button type="button" class="btn ghost" data-box-retry>Try again</button>'
+        : '<p class="note bx-msg">Loading the box score…</p>';
+    } else {
+      html += `<div class="seg bx-seg" role="tablist" aria-label="Team">${['away', 'home'].map((sd) => `<button type="button" role="tab" aria-selected="${sd === box.side}" data-box-side="${sd}">${esc(TEAMS[b[sd].team].name)}</button>`).join('')}</div>`;
+      html += playersHtml(b.players[b[box.side].team]);
+    }
+    html += `<p class="note bx-src">${b && b.state === 'live' ? 'Updates every 30 seconds. ' : ''}<a href="https://www.espn.com/nba/game/_/gameId/${encodeURIComponent(box.id)}" target="_blank" rel="noopener">Full game on ESPN ›</a></p>`;
+    return html;
+  }
+
+  function openBox(id, from) {
+    const g = slate.find((x) => x.id === id) || FINALS.find((x) => x.id === id);
+    const fromTeam = from ? from.split(' ')[0] : null;
+    const mineAt = (t) => state.me != null && state.me >= 0 && (OWN.W[t] === state.me || OWN.L[t] === state.me);
+    // Open on the team that brought you here: the pick you came from, else one of your teams.
+    const side = g && (fromTeam ? g.home === fromTeam : mineAt(g.home) && !mineAt(g.away)) ? 'home' : 'away';
+    openSheet('');
+    box = { id, from: from || null, side, data: boxCache.get(id) || null, failed: false, timer: 0 };
+    renderBox();
+    if (!box.data) loadBox();
+  }
+
+  function renderBox() {
+    if (!box || $('sheet').hidden) return;
+    const wrap = document.querySelector('#sheetBody .bxwrap');
+    const left = wrap ? wrap.scrollLeft : 0;  // keep the table where it was scrolled to
+    $('sheetBody').innerHTML = boxHtml();
+    const again = document.querySelector('#sheetBody .bxwrap');
+    if (again) again.scrollLeft = left;
+  }
+
+  async function loadBox() {
+    const b = box;
+    if (!b) return;
+    clearTimeout(b.timer);
+    if (document.hidden) return;  // picked up again when the page is visible
+    try {
+      const r = await fetch(SUMMARY + encodeURIComponent(b.id), { cache: 'no-cache' });
+      if (!r.ok) throw new Error('ESPN ' + r.status);
+      const data = parseSummary(await r.json());
+      if (box !== b) return;  // closed, or another game opened, while this loaded
+      b.data = data;
+      b.failed = false;
+      if (data.state === 'final') boxCache.set(b.id, data);
+    } catch (e) {
+      if (box !== b) return;
+      b.failed = !b.data;  // a failed refresh keeps the last good box score on screen
+    }
+    renderBox();
+    if (b.data && b.data.state === 'live') b.timer = setTimeout(loadBox, POLL_LIVE);
+  }
+
+  function stopBox() {
+    if (box) clearTimeout(box.timer);
+    box = null;
   }
 
   /* ---------- season replay ---------- */
@@ -1330,6 +1516,15 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return '';
   }
 
+  // Points per period, from ESPN's linescores (the scoreboard has value, the game summary displayValue).
+  const periodPoints = (k) => (k.linescores || []).map((l) => Number(l.value != null ? l.value : l.displayValue));
+  // ESPN's top performer for a team in this game ("35 PTS, 7 REB, 10 AST").
+  function topPerformer(k) {
+    const r = (k.leaders || []).find((L) => L.name === 'rating');
+    const a = r && r.leaders && r.leaders[0];
+    return a && a.athlete && a.displayValue ? { name: a.athlete.shortName || a.athlete.displayName, line: a.displayValue } : null;
+  }
+
   function parseBoard(j, forDay) {
     const day = forDay || (j.day && j.day.date) || D.meta.today;
     const games = [];
@@ -1341,7 +1536,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const sides = {};
       for (const k of c.competitors || []) {
         const t = BY_ESPN[k.team && k.team.abbreviation];
-        if (t) sides[k.homeAway] = { t, score: Number(k.score) };
+        if (t) sides[k.homeAway] = { t, score: Number(k.score), lines: periodPoints(k), star: topPerformer(k) };
       }
       if (!sides.home || !sides.away) continue;
       const st = (c.status && c.status.type) || {};
@@ -1350,12 +1545,15 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const odds = c.odds && c.odds[0];
       const known = D.slate.find((g) => g.id === String(e.id));
       const scores = [sides.away.score, sides.home.score];
+      const started = state !== 'pre';  // before tip-off ESPN's leaders are season averages
       games.push({
         id: String(e.id), day, away: sides.away.t, home: sides.home.t, tip: e.date, state,
-        score: state !== 'pre' && scores.every(Number.isFinite) ? scores : null,
+        score: started && scores.every(Number.isFinite) ? scores : null,
         clock: clockText(c.status),
         spread: odds && odds.spread != null && Number.isFinite(Number(odds.spread)) ? Number(odds.spread) : known && known.spread != null ? known.spread : null,
         leverage: known && known.leverage != null ? known.leverage : null,
+        lines: started && sides.away.lines.length ? [sides.away.lines, sides.home.lines] : null,
+        stars: started ? [sides.away.star, sides.home.star] : null,
       });
     }
     return { day, games };
@@ -1505,6 +1703,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       state.expanded = state.expanded === s ? null : s;
       return renderStandings();
     }
+    if (t.dataset.box) return openBox(t.dataset.box, t.dataset.from);
+    if (t.dataset.boxSide && box) { box.side = t.dataset.boxSide; return renderBox(); }
+    if (t.hasAttribute('data-box-retry') && box) { box.failed = false; renderBox(); return loadBox(); }
     if (t.dataset.team) return openPick(t.dataset.team, t.dataset.side);
     if (t.dataset.metric) { state.metric = t.dataset.metric; state.scrub = null; return renderRace(); }
     if (t.dataset.focus != null) {
@@ -1563,7 +1764,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     resizeTimer = setTimeout(() => { if (D && state.tab === 'race') drawChart(); }, 150);
   });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && D) { poll(); refreshData(); }
+    if (!document.hidden && D) {
+      poll();
+      refreshData();
+      if (box && (!box.data || box.data.state === 'live')) loadBox();
+    }
   });
 
   async function boot() {

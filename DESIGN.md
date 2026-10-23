@@ -85,14 +85,17 @@ Bottom tab bar: Standings, Tonight, Race, Draft. The first visit asks "Who are y
 ```
 +------------------------------------+
 |  4  Asaf    143   +2    14%   you  |
-|     PICK   REC   PTS  VEGAS  NEXT  |
-|     LAC L  13-27  27  +0.9   vDEN  |
-|     MIL L  14-26  26  -1.6   vPOR  |
-|     DEN W  25-15  25  +0.9   @LAC  |
-|     CLE W  22-18  22  -1.7   Fri   |
-|     CHA L  18-22  22  +0.8   Fri   |
-|     ATL W  21-19  21  -0.2   Sat   |
+|     PICK    PTS     VEGAS  NEXT    |
+|     LAC L   27      +0.9   vDEN    |
+|            of 40                   |
+|     MIL L   26      -1.6   vPOR    |
+|     DEN W   25      +0.9   @LAC    |
+|     CLE W   22      -1.7   Fri     |
+|     CHA L   22      +0.8   Fri     |
+|     ATL W   21      -0.2   Sat     |
 +------------------------------------+
+
+Each pick shows what it has added to your score ("27 of 40": 27 points from 40 games), not the team's own record, which reads backwards for an L pick. The team's W-L is in the pick's panel.
 
 +------------------------------------+
 | POR W - Nick, pick #24             |

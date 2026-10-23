@@ -165,12 +165,14 @@ h1, h2, h3, p { margin: 0; }
 /* Picks inside a person's row */
 .picks { padding: 0 12px 12px 42px; }
 .pick {
-  display: grid; grid-template-columns: minmax(0, 1fr) 46px 28px 40px 58px; column-gap: 6px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) 46px 44px 58px; column-gap: 6px; align-items: center;
   padding: 7px 0; width: 100%; border-top: 1px solid var(--line);
 }
 .pick.phead { border-top: 0; padding-block: 2px 4px; }
 .pick .num { font-size: 16px; font-weight: 600; }
 .pick .vs { color: var(--ink-2); }
+.pick .ppts { font-size: 20px; font-weight: 700; line-height: 1.05; }  /* what the pick has added to your score */
+.pick .ppts small { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); }
 .nx { text-align: right; font-size: 12px; line-height: 1.2; color: var(--ink-2); }
 .nx b { display: block; font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--ink); }
 .psum { padding-top: 8px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); }
@@ -813,11 +815,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
   function picksHtml(r) {
     return `<div class="picks">
-      <div class="pick phead"><span class="colhead">Pick</span><span class="colhead num">Rec</span><span class="colhead num">Pts</span><span class="colhead num">Vegas</span><span class="colhead nx">Next</span></div>
+      <div class="pick phead"><span class="colhead">Pick</span><span class="colhead num">Pts</span><span class="colhead num">Vegas</span><span class="colhead nx">Next</span></div>
       ${r.picks.map((k) => `<button type="button" class="pick" data-team="${k.team}" data-side="${k.side}">
         <span>${teamChip(k.team)}${sideTag(k.side)}</span>
-        <span class="num">${k.w}-${k.l}</span>
-        <span class="num">${k.pts}</span>
+        <span class="num ppts">${k.pts}<small>of ${k.gp}</small></span>
         <span class="num vs">${signed(k.vs)}</span>
         ${nextCell(k.team)}
       </button>`).join('')}
@@ -1314,10 +1315,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     openSheet(`<div class="sh-head"><div><h2 class="sh-title" id="sheetTitle">${teamChip(team)}${sideTag(side)}</h2>
         <p class="sh-sub">${esc(TEAMS[team].city)} ${esc(TEAMS[team].name)} ${side === 'W' ? 'wins' : 'losses'} · ${esc(PEOPLE[owner].name)}, pick #${info.overall} (round ${info.round})</p></div>${closeBtn}</div>
       <div class="tiles">
-        <div class="tile"><span>Record</span><b>${k.w}-${k.l}</b></div>
         <div class="tile"><span>Points</span><b>${k.pts}</b></div>
-        <div class="tile"><span>82-game pace</span><b>${k.gp ? Math.round(k.pace) : '–'}</b></div>
         <div class="tile"><span>vs Vegas</span><b>${signed(k.vs)}</b></div>
+        <div class="tile"><span>82-game pace</span><b>${k.gp ? Math.round(k.pace) : '–'}</b></div>
+        <div class="tile"><span>Team W-L</span><b>${k.w}-${k.l}</b></div>
       </div>
       <p class="note" style="margin-top:8px">Vegas line: ${lineTxt}.${fairTxt}${k.gp ? ` At that rate this pick would have ${(lineValue(team, side) / 82 * k.gp).toFixed(1)} points after ${k.gp} game${k.gp === 1 ? '' : 's'}.` : ''}</p>
       <div class="sh-sec"><h3 class="eyebrow">${log.length > 1 ? `Last ${log.length} games` : log.length ? 'Last game' : 'Games'}</h3>

@@ -330,9 +330,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 /* Bottom sheet */
 .backdrop { position: fixed; inset: 0; z-index: 39; background: rgba(0, 0, 0, 0.5); opacity: 0; transition: opacity 0.25s; }
 .backdrop.open { opacity: 1; }
+.backdrop.dragging, .sheet.dragging { transition: none; }  /* follow the finger, no lag */
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; margin: 0 auto; max-width: 560px; max-height: 88vh;
-  overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border-radius: 20px 20px 0 0;
+  overflow-y: auto; overscroll-behavior: none; background: var(--surface); border-radius: 20px 20px 0 0;
   padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1790,6 +1791,52 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     } else if (e.key === 'Escape') setScrub(null);
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
+
+  /* Swipe a sheet down to close it. A downward swipe from the top strip (the grip) always drags
+     the sheet; from anywhere else only when the sheet is scrolled to the top, so it can still
+     scroll. Sideways swipes are left to the box score table. */
+  const sheetEl = $('sheet');
+  let sheetDrag = null;
+  sheetEl.addEventListener('touchstart', (e) => {
+    sheetDrag = null;
+    if (e.touches.length !== 1 || !sheetEl.classList.contains('open')) return;
+    const t = e.touches[0];
+    const grip = t.clientY - sheetEl.getBoundingClientRect().top < 44;
+    sheetDrag = { x0: t.clientX, y0: t.clientY, t0: e.timeStamp, dy: 0, mode: null, grip };
+  }, { passive: true });
+  sheetEl.addEventListener('touchmove', (e) => {
+    const d = sheetDrag;
+    if (!d || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dx = t.clientX - d.x0, dy = t.clientY - d.y0;
+    if (!d.mode) {
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      const pull = dy > 0 && dy > Math.abs(dx) && (d.grip || sheetEl.scrollTop <= 0) && e.cancelable;
+      d.mode = pull ? 'sheet' : 'native';
+      if (pull) { sheetEl.classList.add('dragging'); $('backdrop').classList.add('dragging'); }
+    }
+    if (d.mode !== 'sheet') return;
+    e.preventDefault();  // the sheet follows the finger instead of the content scrolling
+    d.dy = Math.max(0, dy);
+    d.h = sheetEl.offsetHeight;
+    sheetEl.style.transform = `translateY(${d.dy}px)`;
+    $('backdrop').style.opacity = String(Math.max(0, 1 - d.dy / d.h));
+  }, { passive: false });
+  const endSheetDrag = (e) => {
+    const d = sheetDrag;
+    sheetDrag = null;
+    if (!d || d.mode !== 'sheet') return;
+    // Close on a long enough pull or a quick flick; otherwise spring back.
+    const flick = d.dy > 30 && d.dy / Math.max(1, e.timeStamp - d.t0) > 0.6;
+    const close = d.dy > Math.min(140, d.h / 4) || flick;
+    sheetEl.classList.remove('dragging');
+    $('backdrop').classList.remove('dragging');
+    sheetEl.style.transform = '';
+    $('backdrop').style.opacity = '';
+    if (close) closeSheet();
+  };
+  sheetEl.addEventListener('touchend', endSheetDrag);
+  sheetEl.addEventListener('touchcancel', endSheetDrag);
   let resizeTimer = 0;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);

@@ -38,7 +38,8 @@
   --font-display: "Barlow Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --r-md: 14px;
-  --tabbar-h: 58px;
+  --tabbar-h: 52px;
+  --tabbar-pad: max(calc(env(safe-area-inset-bottom, 0px) - 10px), 0px);  /* the labels can sit a little into the home bar's margin */
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
@@ -62,8 +63,11 @@
 /* The page itself never scrolls. Header, scroller and tab bar are rows of a full-height column, so
    nothing is position: fixed; on iPhones fixed bars get dragged around when the page rubber-bands. */
 html { -webkit-text-size-adjust: 100%; background: var(--bg); height: 100%; overscroll-behavior: none; }
+/* Pinned to the screen's edges rather than sized in vh: in a home-screen app with a see-through status
+   bar, iOS reports 100dvh short by the status bar's height, which left a band of empty space under the
+   tab bar. The body still never scrolls, so this doesn't bring back the drifting bars. */
 body {
-  margin: 0; height: 100%; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none;
+  margin: 0; position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none;
   background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
 }
@@ -193,6 +197,7 @@ h1, h2, h3, p { margin: 0; }
 .need span { font-size: 13px; color: var(--muted); }
 .game { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .game.mine { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.game[data-box] { cursor: pointer; }
 .gtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 22px; }
 .gstatus { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 0.04em; white-space: nowrap; }
 .gstatus .spr { color: var(--muted); font-weight: 600; }
@@ -251,7 +256,7 @@ h1, h2, h3, p { margin: 0; }
 .seg button[aria-selected="true"] { background: var(--surface-2); color: var(--ink); }
 .mhelp { font-size: 13px; color: var(--muted); }
 .legend { display: flex; flex-wrap: wrap; gap: 2px 14px; }
-.lg { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--ink-2); min-height: 34px; }
+.lg { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--ink-2); min-height: 40px; }
 .lg i { width: 16px; height: 2px; border-radius: 2px; background: var(--pc); }
 .legend.focusing .lg { opacity: 0.5; }
 .legend.focusing .lg.on { opacity: 1; color: var(--ink); font-weight: 650; }
@@ -308,6 +313,15 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .shade-key span:first-child { margin-right: 4px; }
 .shade-key span:last-child { margin-left: 4px; }
 .sect { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.how-sum { list-style: none; cursor: pointer; position: relative; padding: 14px 44px 14px 16px; }
+.how-sum::-webkit-details-marker { display: none; }
+.how-sum h2 { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.1; }
+.how-sum::after {
+  content: ""; position: absolute; right: 20px; top: 50%; width: 8px; height: 8px; margin-top: -6px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform 0.2s;
+}
+.how[open] .how-sum::after { transform: rotate(-135deg); margin-top: -2px; }
+.how .sect { padding-top: 0; }
 .sect h2 { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.1; }
 .sect p { font-size: 14px; color: var(--ink-2); }
 .recap h2 { font-size: 24px; text-wrap: balance; }
@@ -387,7 +401,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .ls td.t { color: var(--ink); font-weight: 700; font-size: 18px; }
 .bx-story { margin-top: 12px; font-size: 14.5px; color: var(--ink); }
 .bx-oc { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
-.bx-seg { margin-top: 14px; background: var(--surface-2); }
+/* The team / Plays / Recap tabs stay pinned at the top of the sheet while the long tables scroll under them. */
+.bx-tabs { position: sticky; top: -10px; z-index: 3; margin: 6px -16px 0; padding: 8px 16px; background: var(--surface); }  /* -10px: over the sheet's top padding too */
+.bx-seg { background: var(--surface-2); }
 .bx-seg button[aria-selected="true"] { background: var(--surface); }
 .bx-msg { margin-top: 14px; }
 .bxwrap { margin-top: 8px; }
@@ -444,7 +460,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 /* Tab bar */
 .tabbar {
   flex: none; position: relative; z-index: 25; background: var(--bg); border-top: 1px solid var(--line);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--tabbar-pad);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 .tabbar-inner { max-width: 528px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--tabbar-h); }
@@ -459,7 +475,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
 /* Toast */
 .toast {
-  position: fixed; left: 50%; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px); z-index: 35;
+  position: fixed; left: 50%; bottom: calc(var(--tabbar-h) + var(--tabbar-pad) + 12px); z-index: 35;
   width: max-content; max-width: min(520px, calc(100vw - 32px)); transform: translate(-50%, 16px); opacity: 0;
   background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; font-size: 14px; font-weight: 600;
   transition: opacity 0.2s, transform 0.2s; pointer-events: none;
@@ -479,7 +495,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       <div class="subline" id="dateline">Loading…</div>
     </div>
     <div class="top-actions">
-      <span class="live-pill" id="livePill" hidden><i class="live-dot"></i><span id="liveCount"></span></span>
+      <button type="button" class="live-pill" id="livePill" data-tab="tonight" aria-label="Live games: go to Tonight" hidden><i class="live-dot"></i><span id="liveCount"></span></button>
       <button class="me-btn" id="meBtn" type="button" aria-label="Choose who you are">?</button>
     </div>
   </div>
@@ -570,6 +586,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   const extra = new Map();   // finals from days data.json hasn't recorded yet, fetched from ESPN
   const filled = new Set();  // those days, once every game on them is final
   const state = { tab: 'standings', me: null, expanded: null, head: 0, metric: 'pct', focus: null, scrub: null, botOpen: null };
+  const opened = new Set();  // fold-away sections left open, so a re-render doesn't close them
   const pc = (s) => `--pc:var(--p${s + 1})`;
 
   function setData(data) {
@@ -864,7 +881,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     let body = '';
     if (state.me != null && state.me >= 0) {
       const { needs, max } = myNight(state.me);
-      const head = needs.length ? `Up to +${max} for you` : left ? 'Nothing riding on it for you' : 'All games final';
+      const done = myDay(state.me);
+      const head = needs.length ? `Up to +${max} for you` : left ? 'Nothing riding on it for you'
+        : `All final${done.length ? ` · +${done.filter((r) => r.got).length} for you` : ''}`;
       body = `<div class="prev-head"><b>Today</b><span class="note">${esc(head)}</span></div>`;
       body += needs.map(({ g, team, pts, picks }) => `<div class="prev-row"><span>${teamChip(g.away)} <span class="note">@</span> ${teamChip(g.home)} <span class="note">${team ? `need ${esc(team)} (${esc(picks.join(', '))})` : `+${pts} either way`}</span></span>
         <span class="when">${g.state === 'live' && g.score ? `${g.score[0]}–${g.score[1]}` : esc(fmtTime.format(new Date(g.tip)))}</span></div>`).join('');
@@ -886,7 +905,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       <div class="bhead"><span class="colhead">#</span><span class="colhead">Name</span><span class="colhead num">Pts</span><span class="colhead num">${DAYCOL.label}</span><span class="colhead num">Pct</span></div>
       ${ROWS.map(rowHtml).join('')}
     </div>
-    <p class="note">Ranked by Pct, points per game your six teams have played, so nobody looks better just because their teams have played more. Under it: points and misses. ${DAYCOL.label === 'Today' ? 'Today is points from today’s games so far.' : 'Last is points from the last day of games.'} Tap a name for picks and title odds.</p>`;
+    <p class="note">Ranked by Pct, points per game your teams have played. Tap a name for your picks.</p>`;
     // Mornings lead with last night's recap; once today's games start, tonight comes first.
     const started = slate.some((g) => g.state === 'live' || g.state === 'final');
     html += started ? tonightPreview() + recapCard() : recapCard() + tonightPreview();
@@ -988,7 +1007,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const tale = g.state === 'pre' ? '' : gameStory(storyView(g, have && have.data), 2);
     const tags = [big ? `<span class="tag big">Biggest game · moves odds ${Math.max(1, Math.round(g.leverage))} pts</span>` : '', st.tag && st.tag !== 'No stakes' ? `<span class="tag">${st.tag}</span>` : '']
       .filter(Boolean).join('');
-    return `<article class="game card${mine ? ' mine' : ''}">
+    return `<article class="game card${mine ? ' mine' : ''}"${g.state === 'pre' ? '' : ` data-box="${esc(g.id)}"`}>
       <div class="gtop"><div class="tags">${tags || (st.tag ? `<span class="tag">${st.tag}</span>` : '')}</div>${gameStatus(g)}</div>
       <div class="teams">${head}${teamRow(g.away, 0)}${teamRow(g.home, 1)}</div>
       ${chance == null ? '' : winBar(g.away, g.home, chance)}
@@ -1007,23 +1026,44 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const day = currentDay();
     let html = `<div class="tonight-head"><div><h2>${slate.length ? 'Tonight' : 'No games today'}</h2><p>${esc(isoDay(day))}${slate.length ? ` · ${slate.length} games` : ''}${liveN ? ` · ${liveN} live` : ''}${finalN ? ` · ${finalN} final` : ''}</p></div></div>`;
     if (!slate.length) {
-      const ahead = upcoming();
-      const first = ahead.length ? ahead[0][0] : null;
-      const nextDay = first ? dateKey(new Date(first)) : null;
-      const games = ahead.filter(([tip]) => dateKey(new Date(tip)) === nextDay);
-      html += games.length ? `<div class="sect card"><h2>Next up, ${esc(fmtWeekday.format(new Date(first)))}</h2><div class="ahead-list">${games.map(([tip, a, h]) => `<div><span>${teamChip(a)} <span class="note">@</span> ${teamChip(h)}</span><span class="note">${esc(fmtTime.format(new Date(tip)))}</span></div>`).join('')}</div></div>` : '';
-      $('view-tonight').innerHTML = html;
+      $('view-tonight').innerHTML = html + nextUpCard();
       return;
     }
     if (state.me != null && state.me >= 0) {
       const { needs, max } = myNight(state.me);
       const why = needs.filter((n) => n.team).map((n) => `${n.team} for your ${andList(n.picks)}`);
-      html += `<div class="need card"><b>${needs.length ? `You need ${andList(needs.map((n) => n.team || 'either'))}` : 'Nothing left riding for you tonight'}</b>
-        <span>${needs.length ? `Up to +${max} tonight${why.length ? ': ' + esc(why.join(', ')) : ''}` : 'Kick back and root for chaos.'}</span></div>`;
+      const done = myDay(state.me), left = slate.some((g) => g.state !== 'final');
+      // Once your games are over, how the night went; before that, what you need.
+      html += needs.length ? `<div class="need card"><b>You need ${esc(andList(needs.map((n) => n.team || 'either')))}</b><span>Up to +${max} tonight${why.length ? ': ' + esc(why.join(', ')) : ''}</span></div>`
+        : done.length ? `<div class="need card"><b>Your night: +${done.filter((r) => r.got).length}</b><span>${esc(done.map((r) => `${r.pick} ${r.got ? '+1' : 'missed'}`).join(' · '))}</span></div>`
+          : `<div class="need card"><b>None of your teams play ${left ? 'tonight' : 'today'}</b><span>Kick back and root for chaos.</span></div>`;
     }
     html += list.map((g) => gameCard(g, g === big)).join('');
     if (liveOk === false) html += '<p class="note">Live scores are unavailable right now. Finals still arrive within about 15 minutes.</p>';
+    if (!slate.some((g) => g.state !== 'final')) html += nextUpCard();  // tonight is done: what's next
     $('view-tonight').innerHTML = html;
+  }
+
+  // The next day with games, for when today has none or they're all over.
+  function nextUpCard() {
+    const ahead = upcoming().filter(([tip]) => !slate.some((g) => g.tip === tip));
+    const first = ahead.length ? ahead[0][0] : null;
+    if (!first) return '';
+    const games = ahead.filter(([tip]) => dateKey(new Date(tip)) === dateKey(new Date(first)));
+    return `<div class="sect card"><h2>Next up, ${esc(fmtWeekday.format(new Date(first)))}</h2><div class="ahead-list">${games.map(([tip, a, h]) => `<div><span>${teamChip(a)} <span class="note">@</span> ${teamChip(h)}</span><span class="note">${esc(fmtTime.format(new Date(tip)))}</span></div>`).join('')}</div></div>`;
+  }
+
+  // How your picks did in today's finished games.
+  function myDay(me) {
+    const out = [];
+    for (const g of slate) {
+      if (g.state !== 'final' || !g.score) continue;
+      const winner = g.score[1] > g.score[0] ? g.home : g.away;
+      for (const t of [g.away, g.home]) {
+        for (const side of ['W', 'L']) if (OWN[side][t] === me) out.push({ pick: `${t} ${side}`, got: (side === 'W') === (t === winner) });
+      }
+    }
+    return out;
   }
 
   /* ---------- race chart ---------- */
@@ -1220,7 +1260,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       <div class="chart card" id="chart" tabindex="0" aria-describedby="readout"></div>
       <div class="readout card" id="readout" aria-live="polite"></div>
       <p class="note">Drag across the chart to move through the season. Tap a name to pick out one line. Tonight's games join the chart once the day is over.</p>
-      <details class="tbl"><summary>Show as a table</summary>${raceTable()}</details>
+      <details class="tbl" data-keep="tbl"${opened.has('tbl') ? ' open' : ''}><summary>Show as a table</summary>${raceTable()}</details>
       ${vegasCard()}
       <h3 class="eyebrow">Moments</h3>${momentsHtml()}
       ${N >= 3 ? '<button type="button" class="btn ghost" id="replayBtn"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0.5l8 4.5-8 4.5z"/></svg>Replay the season</button>' : ''}`;
@@ -1294,10 +1334,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       html += `<section class="sect card"><h2>Steal and bust</h2><div>${sb('Steal', steal)}${sb('Bust', bust)}</div>
         <p class="note">Measured against each pick's Vegas line, prorated to games played.</p></section>`;
     }
-    html += `<section class="sect card"><h2>How this works</h2>
+    html += `<details class="card how" data-keep="how"${opened.has('how') ? ' open' : ''}><summary class="how-sum"><h2>How this works</h2></summary><div class="sect">
+      <p>The standings rank by Pct, points per game your six teams have played, so nobody looks better just because their teams have played more; the points and misses are under it. Today (or Last) is the points from today's games so far, or from the last day of games.</p>
       <p>Results and live scores come from ESPN. Preseason lines are ${esc(D.meta.linesSource)}; "vs Vegas" grades every pick against those, scaled down slightly because the posted lines add up to ${Object.values(TEAMS).reduce((a, t) => a + t.line, 0).toLocaleString()} wins and a season only has 1,230. The bots draft from the lines as posted. Title odds come from ${(D.meta.model.simsNow || 12000).toLocaleString()} simulations of the rest of the season, using each team's current win total from Kalshi's betting market, taken each morning. If the market is unavailable, each team's preseason line blended with its record stands in.</p>
       <p>A live game's chance to win is our own and uses three things only: the score, the time left and who has the ball (worked out from the last play; the orange dot). Nothing about the teams, their records or the betting line. It's the chance the current margin survives the rest of the game when the scoring left is treated as random, with a spread of 18.5 points over a full game that shrinks as time runs out (Hal Stern's 1994 random-walk model of NBA scores). 18.5 is the value that best predicted the winners of last season's 1,231 games from each quarter break: teams up 7 to 9 after three quarters, for example, come out at 80% and actually won 77%. Having the ball counts as half a possession, about half a point, rising to a full possession over the last 24 seconds, when it's likely the last shot. ESPN's free data has no shot clock.</p>
-      <p class="note">Standings refresh every 15 minutes during game hours; scores on this page update every 30 seconds while games are on.</p></section>`;
+      <p class="note">Standings refresh every 15 minutes during game hours; scores on this page update every 30 seconds while games are on.</p></div></details>`;
     $('view-draft').innerHTML = html;
   }
 
@@ -1523,7 +1564,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const media = b.clips.length || b.recap;
       const tabs = [['away', TEAMS[b.away.team].name], ['home', TEAMS[b.home.team].name], ['plays', 'Plays'], ...(media ? [['recap', b.recap ? 'Recap' : 'Video']] : [])];
       const side = box.side === 'recap' && !media ? 'away' : box.side;
-      html += `<div class="seg bx-seg" role="tablist" aria-label="Box score">${tabs.map(([k, label]) => `<button type="button" role="tab" aria-selected="${k === side}" data-box-side="${k}">${esc(label)}</button>`).join('')}</div>`;
+      html += `<div class="bx-tabs"><div class="seg bx-seg" role="tablist" aria-label="Box score">${tabs.map(([k, label]) => `<button type="button" role="tab" aria-selected="${k === side}" data-box-side="${k}">${esc(label)}</button>`).join('')}</div></div>`;
       html += side === 'plays' ? playsHtml(b) : side === 'recap' ? recapHtml(b) : playersHtml(b.players[b[side].team]);
     }
     html += `<p class="note bx-src">${b && b.state === 'live' ? `Updates every ${BOX_LIVE / 1000} seconds. ` : ''}<a href="https://www.espn.com/nba/game/_/gameId/${encodeURIComponent(box.id)}" target="_blank" rel="noopener">Full game on ESPN ›</a></p>`;
@@ -2224,7 +2265,16 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   }
 
   /* ---------- wiring ---------- */
-  function setTab(tab, scroll = true) {
+  // Like an iPhone tab bar: each tab keeps its place, and tapping the tab you're on goes back to the top.
+  // where: 'keep' (the tab's last place), 'top', or 'stay' (leave the scroller alone, at startup).
+  const scrollAt = {};
+  function setTab(tab, where = 'keep') {
+    const scroller = $('scroller');
+    if (tab === state.tab && where === 'keep') {
+      scroller.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      return;
+    }
+    scrollAt[state.tab] = scroller.scrollTop;
     state.tab = tab;
     for (const id of ['standings', 'tonight', 'race', 'draft']) $('view-' + id).hidden = id !== tab;
     document.querySelectorAll('.tabbar [data-tab]').forEach((b) => {
@@ -2233,7 +2283,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     });
     if (tab === 'race') drawChart();
     if (tab === 'tonight') refreshStories();
-    if (scroll) $('scroller').scrollTop = 0;
+    if (where !== 'stay') scroller.scrollTop = where === 'top' ? 0 : scrollAt[tab] || 0;
   }
 
   function setMe(s) {
@@ -2250,13 +2300,13 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   }
 
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('button, [data-close], .backdrop');
+    const t = e.target.closest('button, [data-close], .backdrop, .game[data-box]');  // a whole game card opens its box score
     if (!t) return;
     if (t.id === 'backdrop' || t.hasAttribute('data-close')) return closeSheet();
     if (t.id === 'retryBtn') return boot();
     if (!D) return;
     if (t.dataset.tab) return setTab(t.dataset.tab);
-    if (t.dataset.goto) return setTab(t.dataset.goto);
+    if (t.dataset.goto) return setTab(t.dataset.goto, 'top');
     if (t.dataset.me != null) {
       const s = Number(t.dataset.me);
       if (!$('sheet').hidden) closeSheet();
@@ -2329,6 +2379,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     } else if (e.key === 'Escape') setScrub(null);
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
+  document.addEventListener('toggle', (e) => {
+    const key = e.target.dataset && e.target.dataset.keep;
+    if (key) { if (e.target.open) opened.add(key); else opened.delete(key); }
+  }, true);
 
   /* Swipe a sheet down to close it. A downward swipe from the top strip (the grip) always drags
      the sheet; from anywhere else only when the sheet is scrolled to the top, so it can still
@@ -2402,7 +2456,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     recompute();
     renderAll();
     renderRace();
-    setTab(state.tab, false);
+    setTab(state.tab, 'stay');
     poll();
     setInterval(refreshData, DATA_EVERY);
     setInterval(() => { if (D) renderHeader(); }, 60e3);

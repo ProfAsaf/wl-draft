@@ -2359,7 +2359,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   /* ---------- takes: what NBA writers post about a game on Bluesky ----------
      Bluesky's public search is free, needs no key and answers web pages directly. A game's takes are
      posts from the NBA writers, beat reporters and analysts in writers.json (members of public Bluesky
-     lists of NBA media; scripts/bsky_writers.py) that name either team or one of its two top scorers,
+     lists of NBA media; scripts/bsky_writers.py) that name either team or one of its three top scorers,
      from shortly before tip-off until a few hours after it. Replies and posts Bluesky has labeled are
      left out. The search has no "or", so each name is its own query; a finished game's posts are read
      once, and while a live game's Media tab is open, new ones are checked for every minute. */
@@ -2378,7 +2378,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       .then((j) => new Set(j.dids)).catch(() => { writers = null; return new Set(); });
     return writers;
   }
-  // What to search for: each team's nickname and shorthand, and its two top scorers so far.
+  // What to search for: each team's nickname and shorthand, and its three top scorers so far.
   function takeTerms(b) {
     const terms = new Set();
     for (const sd of ['away', 'home']) {
@@ -2386,7 +2386,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       terms.add(/\s/.test(TEAMS[t].name) ? `"${TEAMS[t].name}"` : TEAMS[t].name);
       if (TEAM_SHORT[t]) terms.add(TEAM_SHORT[t]);
       const pts = (r) => Number(r.stats[BOX_COLS.indexOf('PTS')]) || 0;
-      for (const r of P ? P.rows.filter((x) => !x.dnp).sort((x, y) => pts(y) - pts(x)).slice(0, 2) : []) {
+      for (const r of P ? P.rows.filter((x) => !x.dnp).sort((x, y) => pts(y) - pts(x)).slice(0, 3) : []) {
         const last = lastName(r.name).split(' ')[0];  // "Jaquez Jr." is searched as "Jaquez"
         terms.add(r.full && (COMMON.has(last) || last.length < 4) ? `"${r.full}"` : last);
         if (ALIAS[r.full]) terms.add(ALIAS[r.full]);

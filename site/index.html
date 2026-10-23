@@ -64,9 +64,16 @@
 /* The page itself never scrolls. Header, scroller and tab bar are rows of a full-height column, so
    nothing is position: fixed; on iPhones fixed bars get dragged around when the page rubber-bands. */
 html { -webkit-text-size-adjust: 100%; background: var(--bg); height: 100%; overscroll-behavior: none; }
-/* Pinned to the screen's edges rather than sized in vh: in a home-screen app with a see-through status
-   bar, iOS reports 100dvh short by the status bar's height, which left a band of empty space under the
-   tab bar. The body still never scrolls, so this doesn't bring back the drifting bars. */
+/* iOS 26 gives a home-screen app with the see-through status bar a screen that's short by the status bar's
+   height, and fills the rest with a gray band the page can't draw on, but only while the page is shorter
+   than the screen (WebKit bug 301108). So the page is made as tall as the whole screen. The 100lvh cap
+   keeps it from growing past the screen, and scrolling, once iOS hands the whole screen over. Anywhere
+   else this works out to 100%. If it doesn't take, fitScreen tries again from the script. */
+@media (display-mode: standalone) {
+  html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top, 0px))); }
+}
+/* Pinned to the screen's edges, so it fills whatever screen iOS gives the page. The body never scrolls,
+   so the header and tab bar don't drift when the page rubber-bands. */
 body {
   margin: 0; position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none;
   background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
@@ -2525,11 +2532,13 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     } catch (e) { /* keep showing what we have */ }
   }
 
-  /* As a home-screen app with the see-through status bar, recent iPhones end the app's area a status
-     bar's height short of the bottom of the screen and fill the rest with a band of their own: the page
-     can't draw there (stretching into it just cuts the tab bar off). That band already covers the home
-     indicator, so in that case the tab bar drops the room it keeps for it. Told apart from a status bar
-     that simply isn't see-through (same short height, but the band is at the top) by the top inset. */
+  /* iOS 26's short screen for home-screen apps (WebKit bug 301108; see the html rule in the CSS). If the
+     page still comes up a status bar's height short, that rule didn't take (it needs display-mode to
+     match, and 100lvh to be the whole screen), so the page is given the screen's height directly. That
+     stays from then on: shrinking the page again would bring the band back. While the band is there
+     anyway, it covers the home indicator, so the tab bar drops the room it keeps for it. A status bar
+     that isn't see-through leaves the same short height, but its band is at the top: no top inset. */
+  let fillScreen = false;
   function fitScreen() {
     const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
     const probe = document.createElement('div');
@@ -2537,12 +2546,16 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     document.body.appendChild(probe);
     const topInset = probe.offsetHeight;
     probe.remove();
-    const gap = (matchMedia('(orientation: landscape)').matches ? screen.width : screen.height) - innerHeight;
-    document.documentElement.classList.toggle('band-below', standalone && topInset > 0 && Math.abs(gap - topInset) <= 2);
+    const full = matchMedia('(orientation: landscape)').matches ? screen.width : screen.height;
+    const short = standalone && topInset > 0 && Math.abs(full - innerHeight - topInset) <= 2;
+    if (short) fillScreen = true;
+    document.documentElement.style.minHeight = fillScreen && topInset > 0 ? `${full}px` : '';
+    document.documentElement.classList.toggle('band-below', short);
   }
   fitScreen();
-  addEventListener('resize', fitScreen);
+  for (const type of ['load', 'pageshow', 'resize']) addEventListener(type, fitScreen);
   addEventListener('orientationchange', () => setTimeout(fitScreen, 300));
+  setTimeout(fitScreen, 800);  // the safe-area insets can arrive after the first layout
 
   /* ---------- wiring ---------- */
   // Like an iPhone tab bar: each tab keeps its place, and tapping the tab you're on goes back to the top.

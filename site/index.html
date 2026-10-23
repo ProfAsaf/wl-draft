@@ -2338,7 +2338,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   }
   const clipTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
   // The Media tab: highlights that play right here (an iPhone streams them at phone quality), what NBA
-  // writers are saying, and ESPN's recap story. During a game the writers come first.
+  // writers are saying, and ESPN's recap story. The few highlights come before the many takes.
   function mediaHtml(b) {
     const i = Math.min(box.clip || 0, Math.max(b.clips.length - 1, 0)), c = b.clips[i];
     let clips = '', recap = '';
@@ -2352,8 +2352,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <p class="note">${esc(b.recap.source || 'ESPN')} recap, via ESPN.</p></article>`;
     }
     const takes = b.state === 'pre' ? '' : takesHtml(box.id);
-    return (b.state === 'live' ? takes + clips : clips + takes + recap)
-      || '<p class="note bx-msg">Highlights show up here during the game, and the recap after it.</p>';
+    return clips + takes + recap || '<p class="note bx-msg">Highlights show up here during the game, and the recap after it.</p>';
   }
 
   /* ---------- takes: what NBA writers post about a game on Bluesky ----------

@@ -390,6 +390,12 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .bx th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); text-align: left; padding-left: 0; font-weight: 600; }
 .bx tbody th:first-child { max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
 .bx tr.tot th, .bx tr.tot td { color: var(--ink); font-weight: 700; border-bottom: 0; }
+.plays { list-style: none; margin: 8px 0 6px; padding: 0; }
+.plays li { display: grid; grid-template-columns: 50px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.35; color: var(--ink-2); }
+.plays .pt { font-family: var(--font-display); font-size: 13.5px; font-weight: 600; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.plays .sw { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: 0; }
+.plays .ps { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.plays li.scored .px { color: var(--ink); font-weight: 600; }
 .bx-src { margin-top: 12px; }
 .bx-src a, .bx-src a:visited { color: var(--ink-2); }
 
@@ -726,10 +732,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   }
 
   /* ---------- small pieces of markup ---------- */
-  const teamChip = (t) => {
-    const color = HEX.test(TEAMS[t].color || '') ? TEAMS[t].color : '#777777';
-    return `<span class="tm"><i class="sw" style="--tc:${color}"></i>${esc(t)}</span>`;
-  };
+  const teamColor = (t) => (HEX.test(TEAMS[t].color || '') ? TEAMS[t].color : '#777777');
+  const teamChip = (t) => `<span class="tm"><i class="sw" style="--tc:${teamColor(t)}"></i>${esc(t)}</span>`;
   const sideTag = (side) => `<span class="side">${side}</span>`;
   const personChip = (s, picks, got) => `<span class="pchip${s === state.me ? ' you' : ''}${got ? ' got' : ''}" style="${pc(s)}"><i></i>${s === state.me ? 'You' : esc(PEOPLE[s].name)}${picks.map((p) => ` <em class="via">${esc(p)}</em>`).join('')} <b>+${picks.length}</b></span>`;
   const spreadText = (g) => {
@@ -1326,18 +1330,22 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
   /* ---------- box scores: fetched from ESPN only when someone taps a game ---------- */
   const SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=';
+  const BOX_LIVE = 10e3;  // ESPN's servers hold a box score about 9 seconds, so faster gains nothing
   const BOX_COLS = ['MIN', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TO', 'FG', '3PT', 'FT', 'PF', '+/-'];
+  const PLAYS = 15;
   const boxCache = new Map();  // finished games don't change, so each is fetched once
-  let box = null;              // the box score on screen: { id, from, side, data, failed, timer }
+  let box = null;              // the box score on screen: { id, from, side, data, sig, failed, timer }
 
   function parseSummary(j) {
     const h = j.header && j.header.competitions && j.header.competitions[0];
     if (!h) throw new Error('no game in the summary');
     const t = (h.status && h.status.type) || {};
-    const sides = {};
+    const sides = {}, byId = {};
     for (const c of h.competitors || []) {
       const team = BY_ESPN[c.team && c.team.abbreviation];
-      if (team) sides[c.homeAway] = { team, score: Number(c.score), lines: periodPoints(c) };
+      if (!team) continue;
+      sides[c.homeAway] = { team, score: Number(c.score), lines: periodPoints(c) };
+      byId[String((c.team && c.team.id) || c.id)] = team;
     }
     if (!sides.away || !sides.home) throw new Error('unknown teams in the summary');
     const players = {};
@@ -1355,7 +1363,25 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         totals: cols(s.totals),
       };
     }
-    return { state: t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre', clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home, players };
+    // The latest plays, newest first, without the substitutions.
+    const plays = (j.plays || []).slice(-4 * PLAYS)
+      .filter((p) => p.text && !(p.type && /substitution/i.test(p.type.text || '')))
+      .slice(-PLAYS).reverse()
+      .map((p) => ({
+        when: `${p.period && p.period.number ? periodName(p.period.number) : ''} ${(p.clock && p.clock.displayValue) || ''}`.trim(),
+        team: byId[String(p.team && p.team.id)] || null,
+        text: p.text,
+        score: p.scoringPlay ? [Number(p.awayScore), Number(p.homeScore)] : null,
+      }));
+    return { state: t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre', clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home, players, plays };
+  }
+
+  function playsHtml(b) {
+    if (!b.plays.length) return '<p class="note bx-msg">Plays show up once the game starts.</p>';
+    return `<ol class="plays">${b.plays.map((p) => `<li class="${p.score ? 'scored' : ''}"><span class="pt">${esc(p.when)}</span>
+      <span class="px">${p.team ? `<i class="sw" style="--tc:${teamColor(p.team)}" title="${esc(p.team)}"></i>` : ''}${esc(p.text)}</span>
+      <span class="ps">${p.score && p.score.every(Number.isFinite) ? `${p.score[0]}–${p.score[1]}` : ''}</span></li>`).join('')}</ol>
+      <p class="note">Last ${b.plays.length} plays, newest first; the score is ${esc(b.away.team)}–${esc(b.home.team)}. Substitutions left out.</p>`;
   }
 
   const dnpWhy = (r) => (/coach/i.test(r) ? 'coach’s decision' : /injur|ill/i.test(r) ? 'injured' : r ? r.toLowerCase() : 'out');
@@ -1403,10 +1429,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       html += box.failed ? '<p class="note bx-msg">Couldn\'t load the box score from ESPN.</p><button type="button" class="btn ghost" data-box-retry>Try again</button>'
         : '<p class="note bx-msg">Loading the box score…</p>';
     } else {
-      html += `<div class="seg bx-seg" role="tablist" aria-label="Team">${['away', 'home'].map((sd) => `<button type="button" role="tab" aria-selected="${sd === box.side}" data-box-side="${sd}">${esc(TEAMS[b[sd].team].name)}</button>`).join('')}</div>`;
-      html += playersHtml(b.players[b[box.side].team]);
+      const tabs = [['away', TEAMS[b.away.team].name], ['home', TEAMS[b.home.team].name], ['plays', 'Plays']];
+      html += `<div class="seg bx-seg" role="tablist" aria-label="Box score">${tabs.map(([k, label]) => `<button type="button" role="tab" aria-selected="${k === box.side}" data-box-side="${k}">${esc(label)}</button>`).join('')}</div>`;
+      html += box.side === 'plays' ? playsHtml(b) : playersHtml(b.players[b[box.side].team]);
     }
-    html += `<p class="note bx-src">${b && b.state === 'live' ? 'Updates every 30 seconds. ' : ''}<a href="https://www.espn.com/nba/game/_/gameId/${encodeURIComponent(box.id)}" target="_blank" rel="noopener">Full game on ESPN ›</a></p>`;
+    html += `<p class="note bx-src">${b && b.state === 'live' ? `Updates every ${BOX_LIVE / 1000} seconds. ` : ''}<a href="https://www.espn.com/nba/game/_/gameId/${encodeURIComponent(box.id)}" target="_blank" rel="noopener">Full game on ESPN ›</a></p>`;
     return html;
   }
 
@@ -1436,20 +1463,25 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     if (!b) return;
     clearTimeout(b.timer);
     if (document.hidden) return;  // picked up again when the page is visible
+    let changed = true;
     try {
       const r = await fetch(SUMMARY + encodeURIComponent(b.id), { cache: 'no-cache' });
       if (!r.ok) throw new Error('ESPN ' + r.status);
       const data = parseSummary(await r.json());
       if (box !== b) return;  // closed, or another game opened, while this loaded
+      const sig = JSON.stringify(data);
+      changed = sig !== b.sig;  // most refreshes bring nothing new; then the screen is left alone
+      b.sig = sig;
       b.data = data;
       b.failed = false;
       if (data.state === 'final') boxCache.set(b.id, data);
     } catch (e) {
       if (box !== b) return;
-      b.failed = !b.data;  // a failed refresh keeps the last good box score on screen
+      changed = !b.data;  // a failed refresh keeps the last good box score on screen
+      b.failed = !b.data;
     }
-    renderBox();
-    if (b.data && b.data.state === 'live') b.timer = setTimeout(loadBox, POLL_LIVE);
+    if (changed) renderBox();
+    if (b.data && b.data.state === 'live') b.timer = setTimeout(loadBox, BOX_LIVE);
   }
 
   function stopBox() {

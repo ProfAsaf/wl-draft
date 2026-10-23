@@ -108,7 +108,7 @@ Bottom tab bar: Standings, Tonight, Race, Draft. The first visit asks "Who are y
 
 Order: the biggest game, then live games, then the rest by tip-off time. Game types get tags: head-to-head, tank bowl (two L picks facing each other), win-win (both outcomes' owners want the same team).
 
-Once a game tips off, its card adds points per quarter and each team's top performer, both from the scoreboard the page already polls. "Box score" opens a sheet with the full player stats for both teams from ESPN's game summary (about 35-50 KB), fetched only on tap and refreshed every 30 seconds while a live game's sheet is open. The squares in a pick's game log open the same sheet for past games.
+Once a game tips off, its card adds points per quarter and each team's top performer, both from the scoreboard the page already polls. "Box score" opens a sheet with the full player stats for both teams and the last 15 plays (substitutions left out) from ESPN's game summary (about 35-50 KB). It's fetched only on tap and refreshed every 10 seconds while a live game's sheet is open; ESPN's servers hold a copy about 9 seconds, so faster gains nothing. The sheet only redraws when something changed, so a refresh never interrupts a tap or a scroll. The squares in a pick's game log open the same sheet for past games.
 
 ```
 +------------------------------------+

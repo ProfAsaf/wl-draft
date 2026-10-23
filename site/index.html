@@ -199,31 +199,47 @@ h1, h2, h3, p { margin: 0; }
 .game { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .game.mine { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
 .game[data-box] { cursor: pointer; }
-/* A card's top strip is its drag handle: touches there move the card instead of scrolling the page. */
-.game .gtop { touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.gright { display: flex; align-items: center; gap: 2px; }
-/* While a game is being dragged, every card shrinks to one thin row so they all fit on screen. */
-.gmini { display: none; align-items: center; gap: 6px; min-height: 30px; }
-.gmini .mini-you { font-family: var(--font-display); font-weight: 700; font-size: 11.5px; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 5px; background: var(--ink); color: var(--bg); white-space: nowrap; }
-.gmini .mini-st { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-display); font-weight: 700; font-size: 15px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.gmini .mini-st .note { font-size: 12.5px; font-weight: 600; }
-.gmini .grip { flex: none; width: 10px; height: 15px; margin-left: 4px; fill: var(--muted); }
-.view.compact { gap: 6px; }
-.view.compact > :not(.game):not(.tonight-head) { display: none; }
-.view.compact .game { padding: 6px 12px; gap: 0; }
-.view.compact .game > :not(.gmini) { display: none; }
-.view.compact .game .gmini { display: flex; }
-.grab {
-  display: grid; place-items: center; width: 36px; height: 36px; margin: -8px -10px -8px 0; color: var(--muted);
-  touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+.btn.slim { min-height: 36px; padding: 0 12px; gap: 6px; border-radius: 10px; font-size: 15px; white-space: nowrap; }
+svg.ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+/* Reordering tonight's games: a bar pinned to the top (Cancel, Save, the arrows) over one thin row per game.
+   Tap a row to pick it and move it with the arrows, or drag it by the handle on its right. */
+.rbar {
+  position: sticky; top: 0; z-index: 4; margin: -14px -16px 0; padding: 12px 16px 10px;
+  display: flex; flex-direction: column; gap: 10px; background: var(--bg); border-bottom: 1px solid var(--line);
 }
-.grab .grip { width: 12px; height: 18px; fill: currentColor; }
-.reorder { white-space: nowrap; }
-.note.reorder .grip { width: 8px; height: 12px; fill: currentColor; vertical-align: -1px; margin: 0 2px; }
-.linkbtn.reorder { min-height: 32px; font-size: 13.5px; color: var(--ink-2); }
-.view.sorting { -webkit-user-select: none; user-select: none; }
-.view.sorting .game { transition: transform 0.18s ease; }
-.view.sorting .game.lifted { transition: none; position: relative; z-index: 5; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); cursor: grabbing; }
+.rbar-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.rbar-top .linkbtn { justify-self: start; color: var(--ink-2); }
+.rbar-top b { font-family: var(--font-display); font-weight: 700; font-size: 21px; line-height: 1; }
+.rbar-top .btn { justify-self: end; }
+.rmoves { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.rmoves button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 40px; border-radius: 10px;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line);
+  font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.rmoves button:disabled { opacity: 0.35; cursor: default; }
+.rhint { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -4px; }
+.rhint .linkbtn { min-height: 32px; font-size: 13.5px; color: var(--ink-2); }
+.rhint .note svg { width: 13px; height: 10px; margin-left: 2px; vertical-align: -1px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.rlist { display: flex; flex-direction: column; gap: 6px; }
+.rrow {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding-left: 12px; border-radius: 12px;
+  background: var(--surface); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.rrow.mine { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.rrow.sel { background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--ink); }
+.rteams { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.rteams .at { color: var(--muted); font-size: 13px; }
+.rteams .yours {
+  margin-left: -2px; padding: 1px 5px; border-radius: 4px; background: var(--ink); color: var(--bg);
+  font-family: var(--font-display); font-weight: 700; font-size: 12px; line-height: 1.25;
+}
+.rst { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-display); font-weight: 700; font-size: 15px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rst small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.rgrip { flex: none; align-self: stretch; display: grid; place-items: center; width: 46px; color: var(--muted); touch-action: none; cursor: grab; }
+.rgrip svg { width: 18px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.rlist.sorting .rrow { transition: transform 0.18s ease; }
+.rlist.sorting .rrow.lifted { transition: none; position: relative; z-index: 3; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 0 0 2px var(--ink); cursor: grabbing; }
 .gtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 22px; }
 .gstatus { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 0.04em; white-space: nowrap; }
 .gstatus .spr { color: var(--muted); font-weight: 600; }
@@ -807,7 +823,15 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   }
 
   /* ---------- small pieces of markup ---------- */
-  const GRIP = '<svg class="grip" viewBox="0 0 12 18" aria-hidden="true"><circle cx="3" cy="3" r="1.6"/><circle cx="9" cy="3" r="1.6"/><circle cx="3" cy="9" r="1.6"/><circle cx="9" cy="9" r="1.6"/><circle cx="3" cy="15" r="1.6"/><circle cx="9" cy="15" r="1.6"/></svg>';
+  const icon = (d) => `<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="${d}"/></svg>`;
+  const ICON = {
+    order: icon('M5 13.5v-11M2 5.5l3-3 3 3M11 2.5v11M8 10.5l3 3 3-3'),
+    top: icon('M3 2.5h10M8 14V6.5M4 10.5l4-4 4 4'),
+    up: icon('M8 13.5v-11M3.5 7L8 2.5 12.5 7'),
+    down: icon('M8 2.5v11M3.5 9L8 13.5 12.5 9'),
+    bottom: icon('M3 13.5h10M8 2v7.5M4 5.5l4 4 4-4'),
+  };
+  const HANDLE = '<svg viewBox="0 0 18 14" aria-hidden="true"><path d="M1 2h16M1 7h16M1 12h16"/></svg>';  // the drag handle
   const teamColor = (t) => (HEX.test(TEAMS[t].color || '') ? TEAMS[t].color : '#777777');
   const teamChip = (t) => `<span class="tm"><i class="sw" style="--tc:${teamColor(t)}"></i>${esc(t)}</span>`;
   const sideTag = (side) => `<span class="side">${side}</span>`;
@@ -1034,14 +1058,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const tale = g.state === 'pre' ? '' : gameStory(storyView(g, have && have.data), 2);
     const tags = [big ? `<span class="tag big">Biggest game · moves odds ${Math.max(1, Math.round(g.leverage))} pts</span>` : '', st.tag && st.tag !== 'No stakes' ? `<span class="tag">${st.tag}</span>` : '']
       .filter(Boolean).join('');
-    // The thin row a card becomes while games are being dragged: the teams, your picks in it, the time or score.
-    const myPicks = state.me != null && state.me >= 0 ? [g.away, g.home].flatMap((t) => ['W', 'L'].filter((sd) => OWN[sd][t] === state.me).map((sd) => `${t} ${sd}`)) : [];
-    const miniState = g.state === 'pre' ? esc(fmtTime.format(new Date(g.tip)))
-      : `${g.state === 'live' ? '<i class="live-dot"></i>' : ''}${g.score ? `${g.score[0]}–${g.score[1]}` : ''}<span class="note">${esc(g.state === 'final' ? 'Final' : g.clock || '')}</span>`;
-    const mini = `<div class="gmini">${teamChip(g.away)}<span class="note">@</span>${teamChip(g.home)}${myPicks.length ? `<span class="mini-you">${esc(myPicks.join(' · '))}</span>` : ''}<span class="mini-st">${miniState}</span>${GRIP}</div>`;
-    return `<article class="game card${mine ? ' mine' : ''}" data-game="${esc(g.id)}"${g.state === 'pre' ? '' : ` data-box="${esc(g.id)}"`}>
-      ${mini}<div class="gtop"><div class="tags">${tags || (st.tag ? `<span class="tag">${st.tag}</span>` : '')}</div>
-        <div class="gright">${gameStatus(g)}<button type="button" class="grab" data-grab="${esc(g.id)}" aria-label="Move this game: drag, or use the up and down arrow keys">${GRIP}</button></div></div>
+    return `<article class="game card${mine ? ' mine' : ''}"${g.state === 'pre' ? '' : ` data-box="${esc(g.id)}"`}>
+      <div class="gtop"><div class="tags">${tags || (st.tag ? `<span class="tag">${st.tag}</span>` : '')}</div>${gameStatus(g)}</div>
       <div class="teams">${head}${teamRow(g.away, 0)}${teamRow(g.home, 1)}</div>
       ${chance == null ? '' : winBar(g.away, g.home, chance)}
       ${tale ? `<p class="story">${esc(tale)}</p>` : ''}
@@ -1050,20 +1068,26 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     </article>`;
   }
 
-  function renderTonight() {
-    if (drag) return;  // never redraw under a finger; the drop redraws
+  // Tonight's games in order: your saved order first (skipped for the usual order), then the biggest game, live, upcoming, finished.
+  function tonightOrder(useSaved = true) {
     const big = bigGame();
-    const day = currentDay();
-    // Your own order first (dragged into place on this phone today), then the biggest game, live, upcoming, finished.
-    const yours = savedOrder(day);
+    const yours = useSaved ? savedOrder(currentDay()) : [];
     const at = (g) => (yours.includes(g.id) ? yours.indexOf(g.id) : 1e9);
     const rank = (g) => (g === big ? 0 : g.state === 'live' ? 1 : g.state === 'pre' ? 2 : 3);
-    const list = slate.slice().sort((a, b) => at(a) - at(b) || rank(a) - rank(b) || new Date(a.tip) - new Date(b.tip));
+    return slate.slice().sort((a, b) => at(a) - at(b) || rank(a) - rank(b) || new Date(a.tip) - new Date(b.tip));
+  }
+
+  function renderTonight() {
+    if (drag) return;  // never redraw under a finger; the drop redraws
+    if (reorder) return renderReorder();
+    const big = bigGame();
+    const day = currentDay();
+    const list = tonightOrder();
     const liveN = slate.filter((g) => g.state === 'live').length;
     const finalN = slate.filter((g) => g.state === 'final').length;
-    const order = slate.length < 2 ? '' : yours.length ? '<button type="button" class="linkbtn reorder" data-reset-order>Reset order</button>'
-      : `<span class="note reorder">${GRIP} Drag a game’s top to reorder</span>`;
-    let html = `<div class="tonight-head"><div><h2>${slate.length ? 'Tonight' : 'No games today'}</h2><p>${esc(isoDay(day))}${slate.length ? ` · ${slate.length} games` : ''}${liveN ? ` · ${liveN} live` : ''}${finalN ? ` · ${finalN} final` : ''}</p></div>${order}</div>`;
+    const yours = savedOrder(day).length > 0;
+    const order = slate.length < 2 ? '' : `<button type="button" class="btn ghost slim" data-reorder="start">${ICON.order}Reorder</button>`;
+    let html = `<div class="tonight-head"><div><h2>${slate.length ? 'Tonight' : 'No games today'}</h2><p>${esc(isoDay(day))}${slate.length ? ` · ${slate.length} games` : ''}${liveN ? ` · ${liveN} live` : ''}${finalN ? ` · ${finalN} final` : ''}${yours ? ' · your order' : ''}</p></div>${order}</div>`;
     if (!slate.length) {
       $('view-tonight').innerHTML = html + nextUpCard();
       return;
@@ -1083,11 +1107,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     $('view-tonight').innerHTML = html;
   }
 
-  /* ---------- your order for tonight's games: drag a card by its top strip ----------
-     Kept on this phone for the day. Press a card's top strip (its tags, time and grip) and move: every game
-     shrinks to a thin row so they all fit, the one you hold follows your finger while the others slide out
-     of its way, and the list scrolls when you drag near the top or bottom. Let go and the cards open back
-     up in the new order. A tap on the strip still opens the box score; swiping below it still scrolls. */
+  /* ---------- your order for tonight's games ----------
+     Kept on this phone for the day. The Reorder button turns every game into one thin row under a pinned
+     bar. Tap a row to pick it and move it with the arrows as many times as you like, or drag a row by the
+     handle on its right: the others slide out of its way, and the list scrolls near the top or bottom.
+     Nothing is kept until Save order; Cancel puts everything back. */
   function savedOrder(day) {
     try {
       const o = JSON.parse(store.get('wl-order') || 'null');
@@ -1095,28 +1119,122 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     } catch (e) { return []; }
   }
   const saveOrder = (day, ids) => store.set('wl-order', JSON.stringify({ day, ids }));
+  let reorder = null;  // while reordering: { day, ids in their new order, sel: the picked game }
   let press = null, drag = null, droppedAt = 0;
+
+  function renderReorder() {
+    const r = reorder;
+    if (r.day !== currentDay()) { reorder = null; return renderTonight(); }  // the slate moved on to a new day
+    const byId = new Map(slate.map((g) => [g.id, g]));
+    r.ids = r.ids.filter((id) => byId.has(id));
+    for (const g of tonightOrder()) if (!r.ids.includes(g.id)) r.ids.push(g.id);
+    const at = r.ids.indexOf(r.sel), last = r.ids.length - 1;
+    if (at < 0) r.sel = null;
+    const move = (how, label, off) => `<button type="button" data-move="${how}"${off ? ' disabled' : ''}>${ICON[how]}${label}</button>`;
+    const picked = r.sel != null;
+    $('view-tonight').innerHTML = `<div class="rbar">
+        <div class="rbar-top"><button type="button" class="linkbtn" data-reorder="cancel">Cancel</button><b>Reorder games</b><button type="button" class="btn slim" data-reorder="save">Save order</button></div>
+        <div class="rmoves">${move('top', 'Top', !picked || at === 0)}${move('up', 'Up', !picked || at === 0)}${move('down', 'Down', !picked || at === last)}${move('bottom', 'Bottom', !picked || at === last)}</div>
+      </div>
+      <div class="rhint"><p class="note">${picked ? 'Move it with the arrows. Tap it again to let go.' : `Tap a game, then use the arrows. Or drag it by ${HANDLE}`}</p><button type="button" class="linkbtn" data-reorder="reset">Reset</button></div>
+      <div class="rlist">${r.ids.map((id) => reorderRow(byId.get(id))).join('')}</div>`;
+  }
+
+  // One game as a thin row: the teams (your picks marked), the time or score, and the drag handle.
+  function reorderRow(g) {
+    const me = state.me != null && state.me >= 0 ? state.me : null;
+    const yours = (t) => ['W', 'L'].filter((sd) => me != null && OWN[sd][t] === me);
+    const team = (t) => teamChip(t) + yours(t).map((sd) => `<span class="yours">${sd}</span>`).join('');
+    const status = g.state === 'pre' ? esc(fmtTime.format(new Date(g.tip)))
+      : `${g.state === 'live' ? '<i class="live-dot"></i>' : ''}${g.score ? `${g.score[0]}–${g.score[1]}` : ''}<small>${esc(g.state === 'final' ? 'Final' : g.clock || '')}</small>`;
+    const mine = yours(g.away).length || yours(g.home).length, sel = reorder.sel === g.id;
+    return `<button type="button" class="rrow${mine ? ' mine' : ''}${sel ? ' sel' : ''}" data-row="${esc(g.id)}" aria-pressed="${sel}">
+      <span class="rteams">${team(g.away)}<span class="at">@</span>${team(g.home)}</span><span class="rst">${status}</span><span class="rgrip" aria-hidden="true">${HANDLE}</span></button>`;
+  }
+
+  // Redraw (and maybe scroll), then slide each row from where it was in the list to where it now is.
+  function slideRows(render, then) {
+    const sc = $('scroller'), at = (c) => c.getBoundingClientRect().top + sc.scrollTop;  // place in the list, whatever the scroll
+    const was = new Map([...viewTonight.querySelectorAll('.rrow')].map((c) => [c.dataset.row, at(c)]));
+    render();
+    if (then) then();  // before the slide starts, so it measures where rows really are
+    if (reduceMotion) return;
+    for (const c of viewTonight.querySelectorAll('.rrow')) {
+      const dy = was.has(c.dataset.row) ? was.get(c.dataset.row) - at(c) : 0;
+      if (dy) c.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
+  }
+
+  // Scroll just enough that the picked game sits clear of the pinned bar and the bottom edge.
+  function keepInView(focus) {
+    const row = viewTonight.querySelector('.rrow.sel'), bar = viewTonight.querySelector('.rbar');
+    if (!row || !bar) return;
+    const sc = $('scroller'), b = row.getBoundingClientRect();
+    const top = bar.getBoundingClientRect().bottom + 8, bottom = sc.getBoundingClientRect().bottom - 8;
+    if (b.top < top) sc.scrollTop -= top - b.top;
+    else if (b.bottom > bottom) sc.scrollTop += b.bottom - bottom;
+    if (focus) row.focus({ preventScroll: true });
+  }
+
+  function moveSel(how, focus) {
+    const r = reorder, i = r.ids.indexOf(r.sel);
+    if (i < 0) return;
+    const j = Math.max(0, Math.min(r.ids.length - 1, how === 'top' ? 0 : how === 'bottom' ? r.ids.length - 1 : i + (how === 'up' ? -1 : 1)));
+    slideRows(() => {
+      r.ids.splice(j, 0, r.ids.splice(i, 1)[0]);
+      renderTonight();
+    }, () => keepInView(focus));
+  }
+
+  function reorderAct(what) {
+    const day = currentDay();
+    if (what === 'start') {
+      reorder = { day, ids: tonightOrder().map((g) => g.id), sel: null };
+      renderTonight();
+      $('scroller').scrollTop = 0;
+      return;
+    }
+    if (!reorder) return;
+    if (what === 'reset') {  // the usual order: the biggest game, then live, upcoming, finished
+      return slideRows(() => {
+        reorder.ids = tonightOrder(false).map((g) => g.id);
+        renderTonight();
+      });
+    }
+    if (what === 'save') {
+      const ids = reorder.ids;
+      if (ids.join() === tonightOrder(false).map((g) => g.id).join()) store.set('wl-order', '');  // same as the usual order: keep following it
+      else {
+        saveOrder(day, ids);
+        toast('Order saved for today');
+      }
+    }
+    reorder = null;  // saved or cancelled: back to the full cards, from the top
+    renderTonight();
+    $('scroller').scrollTop = 0;
+  }
 
   function dragTo(y) {
     const d = drag, sc = $('scroller');
-    const dy = d.base + y - d.y0 + (sc.scrollTop - d.s0);
-    d.card.style.transform = `translateY(${dy}px)`;
-    const mid = d.mids[d.from] + dy;  // where the lifted card's middle is now, among the others' middles
+    const dy = y - d.y0 + (sc.scrollTop - d.s0);
+    d.row.style.transform = `translateY(${dy}px)`;
+    const mid = d.mids[d.from] + dy;  // where the lifted row's middle is now, among the others' middles
     let to = d.from;
     while (to > 0 && mid < d.mids[to - 1]) to--;
-    while (to < d.cards.length - 1 && mid > d.mids[to + 1]) to++;
+    while (to < d.rows.length - 1 && mid > d.mids[to + 1]) to++;
     if (to === d.to) return;
     d.to = to;
-    d.cards.forEach((c, i) => {
-      if (c === d.card) return;
+    d.rows.forEach((c, i) => {
+      if (c === d.row) return;
       const shift = d.from < i && i <= to ? -d.room : to <= i && i < d.from ? d.room : 0;
       c.style.transform = shift ? `translateY(${shift}px)` : '';
     });
   }
   function dragScroll() {  // near the top or bottom of the list, scroll it along
     if (!drag) return;
-    const sc = $('scroller'), r = sc.getBoundingClientRect(), edge = 72;
-    const v = drag.y < r.top + edge ? -(r.top + edge - drag.y) / 5 : drag.y > r.bottom - edge ? (drag.y - (r.bottom - edge)) / 5 : 0;
+    const sc = $('scroller'), r = sc.getBoundingClientRect(), bar = viewTonight.querySelector('.rbar');
+    const top = (bar ? bar.getBoundingClientRect().bottom : r.top) + 40, bottom = r.bottom - 56;
+    const v = drag.y < top ? -(top - drag.y) / 5 : drag.y > bottom ? (drag.y - bottom) / 5 : 0;
     if (v) {
       const before = sc.scrollTop;
       sc.scrollTop += v;
@@ -1125,17 +1243,17 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     drag.raf = requestAnimationFrame(dragScroll);
   }
   function dragStart(p, e) {
-    const sc = $('scroller');
-    viewTonight.classList.add('sorting', 'compact');  // every game becomes a thin row
-    const cards = [...viewTonight.querySelectorAll('.game')];
-    const card = p.card, r = card.getBoundingClientRect();
-    const gap = parseFloat(getComputedStyle(viewTonight).rowGap) || 6;
+    const list = viewTonight.querySelector('.rlist');
+    const rows = list ? [...list.querySelectorAll('.rrow')] : [];
+    const row = rows.find((c) => c.dataset.row === p.row);  // looked up again: a live update may have redrawn the list
+    if (!row) return;
     drag = {
-      card, cards, from: cards.indexOf(card), to: cards.indexOf(card), id: p.id, raf: 0, y0: e.clientY, y: e.clientY, s0: sc.scrollTop,
-      base: e.clientY - (r.top + r.height / 2),  // the rows moved when they shrank: bring the held one under the finger
-      mids: cards.map((c) => { const b = c.getBoundingClientRect(); return b.top + b.height / 2; }), room: r.height + gap,
+      row, rows, list, from: rows.indexOf(row), to: rows.indexOf(row), id: p.id, raf: 0, y0: e.clientY, y: e.clientY, s0: $('scroller').scrollTop,
+      mids: rows.map((c) => { const b = c.getBoundingClientRect(); return b.top + b.height / 2; }),
+      room: row.getBoundingClientRect().height + (parseFloat(getComputedStyle(list).rowGap) || 6),
     };
-    card.classList.add('lifted');
+    list.classList.add('sorting');
+    row.classList.add('lifted');
     dragTo(e.clientY);
     drag.raf = requestAnimationFrame(dragScroll);
   }
@@ -1145,23 +1263,22 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     cancelAnimationFrame(d.raf);
     drag = null;
     droppedAt = Date.now();
-    viewTonight.classList.remove('sorting', 'compact');
-    if (d.to !== d.from) {
-      const ids = d.cards.map((c) => c.dataset.game);
-      ids.splice(d.to, 0, ids.splice(d.from, 1)[0]);
-      saveOrder(currentDay(), ids);
-    }
-    renderTonight();  // full cards again, in the new order, with anything that came in during the drag
-    // Open back up with the game you moved about where you let go of it.
-    const sc = $('scroller'), card = [...viewTonight.querySelectorAll('.game')].find((c) => c.dataset.game === d.card.dataset.game);
-    if (card) sc.scrollTop += card.getBoundingClientRect().top - Math.max(d.y - 30, sc.getBoundingClientRect().top + 8);
+    slideRows(() => {
+      if (reorder) {
+        const ids = d.rows.map((c) => c.dataset.row);
+        ids.splice(d.to, 0, ids.splice(d.from, 1)[0]);
+        reorder.ids = ids;
+        reorder.sel = d.row.dataset.row;  // stays picked, so the arrows can fine-tune it
+      }
+      renderTonight();  // in the new order, with anything that came in during the drag
+    });
   }
   const viewTonight = $('view-tonight');
   viewTonight.addEventListener('pointerdown', (e) => {
-    const strip = e.target.closest('.gtop');
-    if (!strip || press || drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    press = { id: e.pointerId, x0: e.clientX, y0: e.clientY, card: strip.closest('.game') };
-    try { strip.setPointerCapture(e.pointerId); } catch (err) { /* the moves still reach the list */ }
+    const grip = e.target.closest('.rgrip');
+    if (!grip || !reorder || press || drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    press = { id: e.pointerId, x0: e.clientX, y0: e.clientY, row: grip.closest('.rrow').dataset.row };
+    try { grip.setPointerCapture(e.pointerId); } catch (err) { /* the moves still reach the list */ }
   });
   viewTonight.addEventListener('pointermove', (e) => {
     if (drag && e.pointerId === drag.id) {
@@ -1175,23 +1292,17 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   });
   for (const type of ['pointerup', 'pointercancel']) {
     viewTonight.addEventListener(type, (e) => {
-      if (press && e.pointerId === press.id) press = null;  // never moved: a tap, which opens the box score
+      if (press && e.pointerId === press.id) press = null;  // never moved: a tap, which picks the row
       if (drag && e.pointerId === drag.id) dragEnd();
     });
   }
-  // From the keyboard: the arrow keys move a game up or down one place.
+  // From the keyboard: the up and down arrow keys move the focused game one place.
   viewTonight.addEventListener('keydown', (e) => {
-    const grip = e.target.closest('.grab');
-    if (!grip || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    const row = e.target.closest('.rrow');
+    if (!row || !reorder || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
     e.preventDefault();
-    const ids = [...viewTonight.querySelectorAll('.game')].map((c) => c.dataset.game);
-    const i = ids.indexOf(grip.dataset.grab), j = i + (e.key === 'ArrowUp' ? -1 : 1);
-    if (j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-    saveOrder(currentDay(), ids);
-    renderTonight();
-    const again = [...viewTonight.querySelectorAll('.grab')].find((b) => b.dataset.grab === grip.dataset.grab);
-    if (again) again.focus();
+    reorder.sel = row.dataset.row;
+    moveSel(e.key === 'ArrowUp' ? 'up' : 'down', true);
   });
 
   // The next day with games, for when today has none or they're all over.
@@ -2472,9 +2583,14 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const t = e.target.closest('button, [data-close], .backdrop, .game[data-box]');  // a whole game card opens its box score
     if (!t || Date.now() - droppedAt < 400) return;  // the touch that ended a drag isn't a tap
     if (t.id === 'backdrop' || t.hasAttribute('data-close')) return closeSheet();
-    if (t.hasAttribute('data-reset-order')) { store.set('wl-order', ''); return renderTonight(); }
     if (t.id === 'retryBtn') return boot();
     if (!D) return;
+    if (t.dataset.reorder) return reorderAct(t.dataset.reorder);
+    if (t.dataset.move && reorder) return moveSel(t.dataset.move);
+    if (t.dataset.row && reorder) {  // pick a game to move, or let go of it
+      reorder.sel = reorder.sel === t.dataset.row ? null : t.dataset.row;
+      return renderTonight();
+    }
     if (t.dataset.tab) return setTab(t.dataset.tab);
     if (t.dataset.goto) return setTab(t.dataset.goto, 'top');
     if (t.dataset.me != null) {

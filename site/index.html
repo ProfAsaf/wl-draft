@@ -214,6 +214,7 @@ h1, h2, h3, p { margin: 0; }
 .stars b { font-family: var(--font-display); font-weight: 700; font-size: 14px; letter-spacing: 0.02em; color: var(--ink); margin-right: 6px; }
 .stars em { font-style: normal; color: var(--muted); }
 .gfoot .more { font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+.story { font-size: 13.5px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
 .oc { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 8px; align-items: center; }
 .oc > span { font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -377,6 +378,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .ls thead th { font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); }
 .ls td { color: var(--ink-2); font-weight: 500; }
 .ls td.t { color: var(--ink); font-weight: 700; font-size: 18px; }
+.bx-story { margin-top: 12px; font-size: 14.5px; color: var(--ink); }
 .bx-oc { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .bx-seg { margin-top: 14px; background: var(--surface-2); }
 .bx-seg button[aria-selected="true"] { background: var(--surface); }
@@ -953,11 +955,14 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const head = per ? `<div class="tl qh" aria-hidden="true"><span class="tn"></span><span class="qs">${cells(periodLabel)}</span><span class="sc">T</span></div>` : '';
     const stars = (g.stars || []).map((p, i) => (p ? `<span><b>${[g.away, g.home][i]}</b>${esc(p.name)} <em>${esc(p.line)}</em></span>` : '')).join('');
     const foot = g.state === 'pre' ? '' : `<button type="button" class="gfoot" data-box="${esc(g.id)}"><span class="stars">${stars}</span><span class="more">Box score ›</span></button>`;
+    const have = summaries.get(g.id);
+    const tale = g.state === 'pre' ? '' : gameStory(storyView(g, have && have.data), 2);
     const tags = [big ? `<span class="tag big">Biggest game · moves odds ${Math.max(1, Math.round(g.leverage))} pts</span>` : '', st.tag && st.tag !== 'No stakes' ? `<span class="tag">${st.tag}</span>` : '']
       .filter(Boolean).join('');
     return `<article class="game card${mine ? ' mine' : ''}">
       <div class="gtop"><div class="tags">${tags || (st.tag ? `<span class="tag">${st.tag}</span>` : '')}</div>${gameStatus(g)}</div>
       <div class="teams">${head}${teamRow(g.away, 0)}${teamRow(g.home, 1)}</div>
+      ${tale ? `<p class="story">${esc(tale)}</p>` : ''}
       ${outcomeRow(g.away, g.home, done && !homeWon)}${outcomeRow(g.home, g.away, done && homeWon)}
       ${foot}
     </article>`;
@@ -1334,8 +1339,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   const BOX_LIVE = 10e3;  // ESPN's servers hold a box score about 9 seconds, so faster gains nothing
   const BOX_COLS = ['MIN', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TO', 'FG', '3PT', 'FT', 'PF', '+/-'];
   const PLAYS = 15;
-  const boxCache = new Map();  // finished games don't change, so each is fetched once
-  let box = null;              // the box score on screen: { id, from, side, data, sig, failed, timer }
+  const summaries = new Map();  // game id -> { data, at }: the latest parsed summary, for box scores and card stories
+  let box = null;               // the box score on screen: { id, from, side, data, sig, failed, timer }
 
   function parseSummary(j) {
     const h = j.header && j.header.competitions && j.header.competitions[0];
@@ -1374,7 +1379,37 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         text: p.text,
         score: p.scoringPlay ? [Number(p.awayScore), Number(p.homeScore)] : null,
       }));
-    return { state: t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre', clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home, players, plays };
+    const sideOf = (team) => (team === sides.away.team ? 0 : team === sides.home.team ? 1 : null);
+    // Team totals by side, for the story.
+    const stats = [null, null];
+    for (const tm of (j.boxscore && j.boxscore.teams) || []) {
+      const s = sideOf(BY_ESPN[tm.team && tm.team.abbreviation]);
+      if (s == null) continue;
+      const v = {};
+      for (const x of tm.statistics || []) v[x.name] = x.displayValue;
+      const pair = (k) => String(v[k] || '').split('-').map(Number);
+      const [fgm, fga] = pair('fieldGoalsMade-fieldGoalsAttempted'), [tpm, tpa] = pair('threePointFieldGoalsMade-threePointFieldGoalsAttempted');
+      stats[s] = { fgm, fga, tpm, tpa, fta: pair('freeThrowsMade-freeThrowsAttempted')[1], reb: Number(v.totalRebounds),
+        to: Number(v.totalTurnovers), fb: Number(v.fastBreakPoints), maxLead: Number(v.largestLead) };
+    }
+    // Each side's top scorer, and anyone in foul trouble.
+    const stars = [null, null], fouls = [];
+    const at = (r, k) => Number(r.stats[BOX_COLS.indexOf(k)]);
+    for (const [team, P] of Object.entries(players)) {
+      const s = sideOf(team);
+      if (s == null) continue;
+      for (const r of P.rows) {
+        if (r.dnp) continue;
+        if (!stars[s] || at(r, 'PTS') > stars[s].pts) stars[s] = { name: lastName(r.name), pts: at(r, 'PTS'), reb: at(r, 'REB'), ast: at(r, 'AST') };
+        if (at(r, 'PF') >= 5) fouls.push({ side: s, name: lastName(r.name), pf: at(r, 'PF') });
+      }
+    }
+    const period = Number(h.status && h.status.period) || 0;
+    return {
+      state: t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre', clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home,
+      players, plays, period, pause: pauseOf(h.status), stats: stats[0] && stats[1] ? stats : null, stars, fouls,
+      flow: playFlow(j.plays || [], (p) => sideOf(byId[String(p.team && p.team.id)]), period),
+    };
   }
 
   function playsHtml(b) {
@@ -1422,6 +1457,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const row = (sd) => `<tr><th>${teamChip(b[sd].team)}</th>${Array.from({ length: n }, (_, i) => `<td>${Number.isFinite(b[sd].lines[i]) ? b[sd].lines[i] : ''}</td>`).join('')}<td class="t">${b[sd].score}</td></tr>`;
       html += `<div class="tblwrap"><table class="ls"><thead><tr><th></th>${Array.from({ length: n }, (_, i) => `<th>${periodLabel(i)}</th>`).join('')}<th>T</th></tr></thead>
         <tbody>${row('away')}${row('home')}</tbody></table></div>`;
+      const tale = gameStory(summaryView(b), 3);
+      if (tale) html += `<p class="story bx-story">${esc(tale)}</p>`;
     }
     const done = b && b.state === 'final';
     const homeWon = done && b.home.score > b.away.score;
@@ -1445,9 +1482,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     // Open on the team that brought you here: the pick you came from, else one of your teams.
     const side = g && (fromTeam ? g.home === fromTeam : mineAt(g.home) && !mineAt(g.away)) ? 'home' : 'away';
     openSheet('');
-    box = { id, from: from || null, side, data: boxCache.get(id) || null, failed: false, timer: 0 };
+    const have = summaries.get(id);  // shown at once; a live game then refreshes
+    box = { id, from: from || null, side, data: have ? have.data : null, failed: false, timer: 0 };
     renderBox();
-    if (!box.data) loadBox();
+    if (!box.data || box.data.state !== 'final') loadBox();
   }
 
   function renderBox() {
@@ -1475,7 +1513,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       b.sig = sig;
       b.data = data;
       b.failed = false;
-      if (data.state === 'final') boxCache.set(b.id, data);
+      summaries.set(b.id, { data, at: Date.now() });
     } catch (e) {
       if (box !== b) return;
       changed = !b.data;  // a failed refresh keeps the last good box score on screen
@@ -1488,6 +1526,284 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   function stopBox() {
     if (box) clearTimeout(box.timer);
     box = null;
+  }
+
+  /* ---------- game stories: a sentence or three on what has happened and why ---------- */
+  const STORY_EVERY = 60e3;  // live cards re-read each game's play-by-play about once a minute
+  const SUFFIX = /^(jr\.?|sr\.?|ii|iii|iv|v)$/i;
+  // "Tyrese Maxey" or "T. Maxey" -> "Maxey"; "Jabari Smith Jr." -> "Smith Jr."
+  function lastName(full) {
+    const w = String(full || '').replace(/^[A-Z][a-z]?\.\s+/, '').trim().split(/\s+/);
+    return w.length > 1 && SUFFIX.test(w[w.length - 1]) ? w.slice(-2).join(' ') : w[w.length - 1];
+  }
+  // Who shot and whether it went in, from ESPN's play text ("Tyrese Maxey makes 26-foot three point jumper").
+  function shotBy(text) {
+    let m = /^(.+?) (makes|misses) /.exec(text || '');
+    if (m) return { name: m[1], made: m[2] === 'makes' };
+    m = /^.+? blocks (.+?)'s /.exec(text || '');
+    return m ? { name: m[1], made: false } : null;
+  }
+  const shotWord = (t) => (/three point/i.test(t) ? 'three' : /dunk/i.test(t) ? 'dunk' : /layup/i.test(t) ? 'layup'
+    : /free throw/i.test(t) ? 'free throw' : /hook/i.test(t) ? 'hook shot' : 'jumper');
+  const pthe = (p) => (p <= 4 ? `the ${ordinal(p)}` : p === 5 ? 'overtime' : `the ${ordinal(p - 4)} overtime`);
+
+  // The game's flow from its plays: each side's largest deficit and who has scored since, the
+  // current run and who scored it, lead changes, the last go-ahead basket, who has scored most this
+  // period, and who has gone cold. sideOf(play) is 0 for the away team, 1 for home.
+  function playFlow(all, sideOf, period) {
+    const scoring = [];
+    let prev = [0, 0];
+    for (const p of all) {
+      if (!p.scoringPlay) continue;
+      const now = [Number(p.awayScore), Number(p.homeScore)];
+      if (!now.every(Number.isFinite)) continue;
+      const d = [now[0] - prev[0], now[1] - prev[1]];
+      prev = now;
+      const s = d[0] > 0 ? 0 : d[1] > 0 ? 1 : null;
+      if (s == null) continue;
+      const sh = shotBy(p.text);
+      scoring.push({ p, now, s, val: d[s], name: sh ? lastName(sh.name) : null });
+    }
+    const topOf = (list, s) => {
+      const m = new Map();
+      for (const x of list) if (x.s === s && x.name) m.set(x.name, (m.get(x.name) || 0) + x.val);
+      let best = null;
+      for (const [name, pts] of m) if (!best || pts > best.pts) best = { name, pts };
+      return best;
+    };
+    const deficit = [0, 0], deficitAt = [-1, -1];
+    let ahead = null, last = null, leadChanges = 0, goAhead = null;
+    scoring.forEach((x, i) => {
+      const [a, h] = x.now;
+      if (h - a > deficit[0]) { deficit[0] = h - a; deficitAt[0] = i; }
+      if (a - h > deficit[1]) { deficit[1] = a - h; deficitAt[1] = i; }
+      const lead = a > h ? 0 : h > a ? 1 : null;
+      if (lead != null && lead !== ahead) {
+        if (last != null && lead !== last) leadChanges++;
+        goAhead = x.name ? { side: lead, name: x.name, shot: shotWord(x.p.text), period: (x.p.period && x.p.period.number) || 0, clock: (x.p.clock && x.p.clock.displayValue) || '' } : null;
+        last = lead;
+      }
+      ahead = lead;
+    });
+    // The run: back from the latest basket for as long as the other side has scored 4 or fewer.
+    let run = null;
+    const tally = [0, 0];
+    for (let i = scoring.length - 1; i >= 0; i--) {
+      tally[scoring[i].s] += scoring[i].val;
+      if (Math.min(tally[0], tally[1]) > 4) break;
+      const s = tally[0] >= tally[1] ? 0 : 1;
+      if (tally[s] - tally[1 - s] >= 8) run = { side: s, pts: tally[s], opp: tally[1 - s], top: topOf(scoring.slice(i), s) };
+    }
+    // Field goals by player: in the second half once it has started, else the whole game.
+    const half = period >= 3;
+    const shots = [new Map(), new Map()];
+    for (const p of all) {
+      if (!p.shootingPlay || /free throw/i.test(p.text || '') || (half && !(p.period && p.period.number >= 3))) continue;
+      const s = sideOf(p), sh = shotBy(p.text);
+      if (s == null || !sh) continue;
+      const name = lastName(sh.name), r = shots[s].get(name) || { made: 0, att: 0 };
+      r.att++;
+      if (sh.made) r.made++;
+      shots[s].set(name, r);
+    }
+    const cold = shots.map((m) => {
+      let worst = null;
+      for (const [name, r] of m) if (r.att >= 6 && r.made / r.att <= 0.25 && (!worst || r.att - r.made > worst.att - worst.made)) worst = { name, ...r };
+      return worst;
+    });
+    const thisPeriod = scoring.filter((x) => x.p.period && x.p.period.number === period);
+    return {
+      deficit, run, leadChanges, goAhead, half, cold, period,
+      sinceTop: [0, 1].map((s) => (deficitAt[s] >= 0 ? topOf(scoring.slice(deficitAt[s] + 1), s) : null)),
+      periodTop: [0, 1].map((s) => topOf(thisPeriod, s)),
+    };
+  }
+
+  // ESPN's top-performer line ("35 PTS, 7 REB, 10 AST") as numbers.
+  function starOf(p) {
+    if (!p) return null;
+    const m = {};
+    for (const part of String(p.line || '').split(',')) {
+      const [n, k] = part.trim().split(/\s+/);
+      m[k] = Number(n);
+    }
+    return Number.isFinite(m.PTS) ? { name: lastName(p.name), pts: m.PTS, reb: m.REB || 0, ast: m.AST || 0 } : null;
+  }
+
+  const summaryView = (b) => (b.state === 'pre' ? null : {
+    fin: b.state === 'final', period: b.period, pause: b.pause, teams: [b.away.team, b.home.team], score: [b.away.score, b.home.score],
+    lines: [b.away.lines, b.home.lines], stats: b.stats, stars: b.stars, flow: b.flow, fouls: b.fouls,
+  });
+
+  // A card's story: the scoreboard's game, plus its play-by-play once fetched. The plays can be a
+  // minute behind the score, so a run carries forward only while the other side stays quiet.
+  function storyView(g, s) {
+    if (!g.score || g.state === 'pre') return null;
+    const v = { fin: g.state === 'final', period: g.period, pause: g.pause, teams: [g.away, g.home], score: g.score, lines: g.lines,
+      stats: g.stats, stars: g.stars ? g.stars.map(starOf) : null, flow: null, fouls: [] };
+    if (!s || s.away.team !== g.away || s.home.team !== g.home) return v;
+    const since = [g.score[0] - s.away.score, g.score[1] - s.home.score];
+    if (since.some((d) => d < 0)) return summaryView(s);  // the summary is the fresher of the two
+    let run = s.flow.run;
+    if (run) {
+      const opp = run.opp + since[1 - run.side];
+      run = opp > 4 ? null : { ...run, pts: run.pts + since[run.side], opp };
+    }
+    v.flow = { ...s.flow, run };
+    v.fouls = s.fouls;
+    if (s.stats) v.stats = v.stats ? v.stats.map((x, i) => ({ ...s.stats[i], ...x })) : s.stats;
+    return v;
+  }
+
+  // Up to n sentences: what happened (a comeback, a run, a big quarter, a go-ahead basket), then why
+  // (the stat gaps, and players running hot, cold or into foul trouble), then who (top scorers).
+  function gameStory(v, n) {
+    if (!v || !v.score || !v.score.every(Number.isFinite)) return '';
+    const fin = v.fin, fl = v.flow, [a, h] = v.score;
+    const L = a === h ? null : a > h ? 0 : 1, margin = Math.abs(a - h);
+    const The = (s) => `The ${TEAMS[v.teams[s]].name}`, the = (s) => `the ${TEAMS[v.teams[s]].name}`;
+    const facts = [];
+    const add = (group, w, text, who) => facts.push({ group, w, text, who: who || null });
+
+    // The largest deficit each side has faced: exact from the plays, else from each quarter's end.
+    const deficit = fl ? fl.deficit.slice() : [0, 0];
+    if (!fl && v.lines) {
+      let ca = 0, ch = 0;
+      for (let i = 0; i < Math.min(v.lines[0].length, v.lines[1].length); i++) {
+        ca += v.lines[0][i] || 0;
+        ch += v.lines[1][i] || 0;
+        deficit[0] = Math.max(deficit[0], ch - ca);
+        deficit[1] = Math.max(deficit[1], ca - ch);
+      }
+    }
+    deficit[0] = Math.max(deficit[0], h - a);
+    deficit[1] = Math.max(deficit[1], a - h);
+    const back = [0, 1].find((s) => deficit[s] >= 10 && (L === s || (L === null && !fin)));
+    const run = !fin && fl && fl.run && fl.run.pts - fl.run.opp >= 8 ? fl.run : null;
+    const k = back != null ? back : L != null ? L : run ? run.side : null;  // whose story it is
+    const lean = (s) => (k == null ? 0 : s === k ? 10 : -5);
+
+    // What happened.
+    if (back != null) {
+      const d = deficit[back], by = fl && fl.sinceTop[back] && fl.sinceTop[back].pts >= 10 ? fl.sinceTop[back] : null;
+      add('flow', 100 + d, (fin ? `${The(back)} came back from ${d} down` : L === back ? `${The(back)} have come back from ${d} down` : `${The(back)} have erased a ${d}-point deficit`)
+        + (by ? `, with ${by.name} scoring ${by.pts} since then` : ''), by && by.name);
+    }
+    if (run) {
+      const top = run.top && run.top.pts >= 5 ? run.top : null;
+      add('flow', 70 + run.pts - run.opp, `${The(run.side)} are on a ${run.pts}-${run.opp} run${top ? `, ${top.pts} of them from ${top.name}` : ''}`, top && top.name);
+    }
+    const P = v.lines ? Math.min(v.lines[0].length, v.lines[1].length) : 0;
+    let big = null;
+    for (let i = 0; P >= 2 && i < P; i++) {  // with one quarter played, its score is the whole score
+      const x = v.lines[0][i], y = v.lines[1][i];
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const playing = !fin && !v.pause && i + 1 === v.period;
+      const d = Math.abs(x - y);
+      if (d < (playing ? 8 : 10)) continue;
+      const w = (playing ? 50 : 40) + d;
+      if (!big || w > big.w) big = { i, s: x > y ? 0 : 1, hi: Math.max(x, y), lo: Math.min(x, y), playing, w };
+    }
+    if (big) {
+      const pt = fl && fl.period === v.period && fl.periodTop[big.s];
+      const top = big.playing && pt && pt.pts >= 8 ? pt : null;
+      const p = big.i + 1, quarter = p <= 4 ? `${['first', 'second', 'third', 'fourth'][p - 1]} quarter` : null;
+      // A quarter won by the team now well ahead is where it took control (or, at the end, pulled away).
+      const decisive = quarter && big.s === L && margin >= 6;
+      add('flow', big.w, big.playing ? `${The(big.s)} are outscoring ${the(1 - big.s)} ${big.hi}-${big.lo} in ${pthe(p)}${top ? `, ${top.name} with ${top.pts}` : ''}`
+        : decisive ? `${The(big.s)} ${fin && p === P ? 'pulled away' : 'took control'} with a ${big.hi}-${big.lo} ${quarter}`
+          : `${The(big.s)} won ${pthe(p)} ${big.hi}-${big.lo}`, top && top.name);
+    }
+    const most = L != null && v.stats && v.stats[L] ? v.stats[L].maxLead : null;
+    if (L != null && back == null && margin >= 12 && most >= margin) {
+      const star = v.stars && v.stars[L];
+      add('flow', 45 + margin / 2, `${The(L)} ${fin ? 'led' : 'have led'} by as many as ${most}${star ? ` behind ${star.name}’s ${star.pts} points` : ''}`, star && star.name);
+    }
+    const ga = fl && fl.goAhead;
+    if (ga && L === ga.side && (fin ? margin <= 10 : ga.period === v.period)) {
+      const when = ga.clock === '0.0' ? ' at the buzzer' : ` with ${ga.clock} left${fin || ga.period !== v.period ? ' in ' + pthe(ga.period) : ''}`;
+      add('flow', 55, `${ga.name}’s ${ga.shot}${when} put ${the(ga.side)} ahead${fin ? ' for good' : ''}`, ga.name);
+    }
+    if (margin <= 5 && (fin || v.period >= 4) && Math.max(deficit[0], deficit[1]) <= 9) {
+      const lc = fl ? fl.leadChanges : 0;
+      add('flow', 35, lc >= 3 ? `${fin ? 'There were' : 'There have been'} ${lc} lead changes` : `It ${fin ? 'was' : 'has been'} close all game`);
+    }
+
+    // Why.
+    const st = v.stats;
+    if (st && st[0] && st[1]) {
+      for (const s of [0, 1]) {
+        const o = 1 - s, A = st[s], B = st[o];
+        if (A.tpm - B.tpm >= 4) add('why', 30 + 3 * (A.tpm - B.tpm) + lean(s), `${The(s)} ${fin ? 'made' : 'have made'} ${A.tpm} threes to ${B.tpm}`);
+        if (B.tpa >= 15 && B.tpm / B.tpa <= 0.28) add('why', 28 + Math.round((0.3 - B.tpm / B.tpa) * 100) + lean(s), `${The(o)} ${fin ? 'went' : 'are'} ${B.tpm} of ${B.tpa} from three`);
+        const pa = A.fgm / A.fga, pb = B.fgm / B.fga;
+        if (A.fga >= 20 && B.fga >= 20 && pa - pb >= 0.07) add('why', 22 + Math.round((pa - pb) * 100) + lean(s), `${The(s)} ${fin ? 'outshot' : 'are outshooting'} ${the(o)} ${Math.round(pa * 100)}% to ${Math.round(pb * 100)}%`);
+        if (A.fta - B.fta >= 10) add('why', 18 + A.fta - B.fta + lean(s), `${The(s)} ${fin ? 'took' : 'have taken'} ${A.fta} free throws to ${B.fta}`);
+        if (A.reb - B.reb >= 10) add('why', 18 + A.reb - B.reb + lean(s), `${The(s)} ${fin ? 'outrebounded' : 'are outrebounding'} ${the(o)} ${A.reb}-${B.reb}`);
+        if (B.to - A.to >= 6) add('why', 22 + 2 * (B.to - A.to) + lean(s), `${The(o)} ${fin ? 'had' : 'have'} ${B.to} turnovers to ${A.to}`);
+        if (A.fb - B.fb >= 10) add('why', 18 + A.fb - B.fb + lean(s), `${The(s)} ${fin ? 'outscored' : 'are outscoring'} ${the(o)} ${A.fb}-${B.fb} on fast breaks`);
+      }
+    }
+    if (fl) {
+      for (const s of [0, 1]) {
+        const c = fl.cold[s];
+        if (c) add('why', 34 + c.att + lean(1 - s), `${c.name} ${fin ? 'went' : 'is'} ${c.made} of ${c.att} from the field${fl.half ? (fin ? ' in the second half' : ' since halftime') : ''}`, c.name);
+      }
+    }
+    for (const f of v.fouls || []) {
+      if (f.pf >= 6) add('why', 32, `${f.name} fouled out`, f.name);
+      else if (!fin) add('why', 26, `${f.name} has ${f.pf} fouls`, f.name);
+    }
+
+    // Who: the top scorers, the story side's first.
+    (k != null ? [k, 1 - k] : [0, 1]).forEach((s, j) => {
+      const p = v.stars && v.stars[s];
+      if (!p || !(p.pts >= 10)) return;
+      const line = [`${p.pts} points`, ...(p.reb >= 10 ? [`${p.reb} rebounds`] : []), ...(p.ast >= 10 ? [`${p.ast} assists`] : [])];
+      add('who', 15 + p.pts / 2 - 5 * j, `${p.name} ${fin ? 'had' : 'has'} ${andList(line)}`, p.name);
+    });
+
+    // One fact of each kind, best first, never two about the same player.
+    const out = [], used = new Set();
+    const take = (group) => {
+      const f = facts.filter((x) => x.group === group && !x.taken && !(x.who && used.has(x.who))).sort((x, y) => y.w - x.w)[0];
+      if (!f) return false;
+      f.taken = true;
+      out.push(f.text);
+      if (f.who) used.add(f.who);
+      return true;
+    };
+    take('flow');
+    take('why');
+    if (out.length < n) take('who');
+    while (out.length < n && take('why'));
+    while (out.length < n && take('flow'));
+    return out.slice(0, n).map((t) => t.charAt(0).toUpperCase() + t.slice(1) + '.').join(' ');
+  }
+
+  // Live cards tell their story from each game's play-by-play, fetched in the background about once a
+  // minute while the Tonight tab is open (a finished game's just once).
+  let storyBusy = false;
+  async function refreshStories() {
+    if (storyBusy || !D || document.hidden || state.tab !== 'tonight') return;
+    storyBusy = true;
+    let changed = false;
+    try {
+      for (const g of slate) {
+        if (g.state === 'pre' || document.hidden || state.tab !== 'tonight') continue;
+        const have = summaries.get(g.id);
+        if (have && (have.data.state === 'final' || Date.now() - have.at < STORY_EVERY)) continue;
+        try {
+          const r = await fetch(SUMMARY + encodeURIComponent(g.id), { cache: 'no-cache' });
+          if (!r.ok) continue;
+          summaries.set(g.id, { data: parseSummary(await r.json()), at: Date.now() });
+          changed = true;
+        } catch (e) { /* the next poll tries again */ }
+      }
+    } finally {
+      storyBusy = false;
+    }
+    if (changed) renderTonight();
   }
 
   /* ---------- season replay ---------- */
@@ -1557,6 +1873,17 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const a = r && r.leaders && r.leaders[0];
     return a && a.athlete && a.displayValue ? { name: a.athlete.shortName || a.athlete.displayName, line: a.displayValue } : null;
   }
+  // A team's shooting and rebounding in this game, from the scoreboard.
+  function boardStats(k) {
+    const v = {};
+    for (const x of k.statistics || []) v[x.name] = Number(x.displayValue);
+    if (!Number.isFinite(v.fieldGoalsAttempted)) return null;
+    return { fgm: v.fieldGoalsMade, fga: v.fieldGoalsAttempted, tpm: v.threePointFieldGoalsMade, tpa: v.threePointFieldGoalsAttempted, fta: v.freeThrowsAttempted, reb: v.rebounds };
+  }
+  const pauseOf = (status) => {
+    const n = (status && status.type && status.type.name) || '';
+    return n === 'STATUS_HALFTIME' ? 'half' : n === 'STATUS_END_PERIOD' ? 'end' : null;
+  };
 
   function parseBoard(j, forDay) {
     const day = forDay || (j.day && j.day.date) || D.meta.today;
@@ -1569,7 +1896,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const sides = {};
       for (const k of c.competitors || []) {
         const t = BY_ESPN[k.team && k.team.abbreviation];
-        if (t) sides[k.homeAway] = { t, score: Number(k.score), lines: periodPoints(k), star: topPerformer(k) };
+        if (t) sides[k.homeAway] = { t, score: Number(k.score), lines: periodPoints(k), star: topPerformer(k), stats: boardStats(k) };
       }
       if (!sides.home || !sides.away) continue;
       const st = (c.status && c.status.type) || {};
@@ -1578,15 +1905,17 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const odds = c.odds && c.odds[0];
       const known = D.slate.find((g) => g.id === String(e.id));
       const scores = [sides.away.score, sides.home.score];
-      const started = state !== 'pre';  // before tip-off ESPN's leaders are season averages
+      const started = state !== 'pre';  // before tip-off ESPN's leaders and stats are season averages
       games.push({
         id: String(e.id), day, away: sides.away.t, home: sides.home.t, tip: e.date, state,
         score: started && scores.every(Number.isFinite) ? scores : null,
         clock: clockText(c.status),
+        period: Number(c.status && c.status.period) || 0, pause: pauseOf(c.status),
         spread: odds && odds.spread != null && Number.isFinite(Number(odds.spread)) ? Number(odds.spread) : known && known.spread != null ? known.spread : null,
         leverage: known && known.leverage != null ? known.leverage : null,
         lines: started && sides.away.lines.length ? [sides.away.lines, sides.home.lines] : null,
         stars: started ? [sides.away.star, sides.home.star] : null,
+        stats: started && sides.away.stats && sides.home.stats ? [sides.away.stats, sides.home.stats] : null,
       });
     }
     return { day, games };
@@ -1671,6 +2000,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       renderTonight();
     }
     renderHeader();
+    refreshStories();
     const busy = slate.some((g) => g.state === 'live' || (g.state === 'pre' && new Date(g.tip) - Date.now() < 15 * 60e3));
     pollTimer = setTimeout(poll, busy ? POLL_LIVE : POLL_IDLE);
   }
@@ -1702,6 +2032,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       else b.removeAttribute('aria-current');
     });
     if (tab === 'race') drawChart();
+    if (tab === 'tonight') refreshStories();
     if (scroll) $('scroller').scrollTop = 0;
   }
 

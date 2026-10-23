@@ -110,6 +110,8 @@ Order: the biggest game, then live games, then the rest by tip-off time. Game ty
 
 Once a game tips off, its card adds points per quarter and each team's top performer, both from the scoreboard the page already polls. "Box score" opens a sheet with the full player stats for both teams and the last 15 plays (substitutions left out) from ESPN's game summary (about 35-50 KB). It's fetched only on tap and refreshed every 10 seconds while a live game's sheet is open; ESPN's servers hold a copy about 9 seconds, so faster gains nothing. The sheet only redraws when something changed, so a refresh never interrupts a tap or a scroll. The squares in a pick's game log open the same sheet for past games.
 
+Each started game also gets a short story, written by rules in the page (no AI service, so no key to hide and nothing to pay for): what happened (a comeback, a run, a big quarter, a lead built, a go-ahead basket) and why (shooting and turnover gaps, a cold shooter, foul trouble), naming the players behind it, from the play-by-play text ("Tyrese Maxey makes 26-foot three point jumper"). Cards show two sentences; the box score sheet three. While the Tonight tab is open the page re-reads each live game's play-by-play about once a minute (a finished game's once), roughly 40 KB per game.
+
 ```
 +------------------------------------+
 | TONIGHT       6 games - 2 live now |

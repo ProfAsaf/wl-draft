@@ -217,6 +217,11 @@ h1, h2, h3, p { margin: 0; }
 .stars em { font-style: normal; color: var(--muted); }
 .gfoot .more { font-weight: 600; font-size: 13.5px; white-space: nowrap; }
 .story { font-size: 13.5px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
+.ball { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #e8742a; margin-left: 6px; vertical-align: 1px; flex: none; }
+.wp { display: flex; align-items: center; gap: 10px; }
+.wpbar { flex: 1; display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; }
+.wpbar i { display: block; min-width: 2px; }
+.wpl { font-family: var(--font-display); font-weight: 700; font-size: 13.5px; letter-spacing: 0.02em; white-space: nowrap; }
 .oc { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 8px; align-items: center; }
 .oc > span { font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -401,6 +406,28 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .plays .sw { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: 0; }
 .plays .ps { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .plays li.scored .px { color: var(--ink); font-weight: 600; }
+.wpc { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; margin-top: 12px; }
+.wpc-k { display: flex; flex-direction: column; justify-content: space-between; font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink-2); }
+.wpc svg { display: block; width: 100%; height: 90px; }
+.wpc .wpa { opacity: 0.35; }
+.wpc .wpg { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.wpc .wpm { stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.wpc .wpline { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.wpc + .note { margin-top: 4px; }
+.bx-seg button { padding-inline: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl { margin-top: 12px; }
+.hl video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #000; }
+.hl-t { margin-top: 6px; font-size: 14px; font-weight: 600; }
+.clips { display: flex; gap: 10px; overflow-x: auto; margin-top: 12px; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.clip { flex: 0 0 150px; display: flex; flex-direction: column; gap: 4px; scroll-snap-align: start; }
+.clip img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--surface-2); }
+.clip.on img { box-shadow: 0 0 0 2px var(--ink); }
+.clip span { font-size: 12.5px; line-height: 1.3; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.clip em { font-style: normal; font-size: 11.5px; color: var(--muted); }
+.recap-art { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.recap-art h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.15; }
+.recap-art h4 { margin: 4px 0 0; font-size: 14px; font-weight: 700; }
+.recap-art p { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
 .bx-src { margin-top: 12px; }
 .bx-src a, .bx-src a:visited { color: var(--ink-2); }
 
@@ -951,7 +978,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     // Once the game is on, each row shows points per quarter (all four, plus any overtimes).
     const per = g.lines ? Math.max(4, g.lines[0].length, g.lines[1].length) : 0;
     const cells = (f) => Array.from({ length: per }, (_, i) => `<i>${f(i)}</i>`).join('');
-    const teamRow = (t, side) => `<div class="tl${lead(side) ? ' lead' : ''}">${teamChip(t)}<span class="tn">${per ? '' : esc(TEAMS[t].city) + ' '}${esc(TEAMS[t].name)}</span>
+    const ball = liveBall(g), chance = liveWin(g, ball);
+    const teamRow = (t, side) => `<div class="tl${lead(side) ? ' lead' : ''}">${teamChip(t)}<span class="tn">${per ? '' : esc(TEAMS[t].city) + ' '}${esc(TEAMS[t].name)}${ball === side ? '<i class="ball" title="Has the ball"></i>' : ''}</span>
       ${per ? `<span class="qs">${cells((i) => (Number.isFinite(g.lines[side][i]) ? g.lines[side][i] : ''))}</span>` : ''}<span class="sc">${g.score && g.state !== 'pre' ? g.score[side] : ''}</span></div>`;
     const head = per ? `<div class="tl qh" aria-hidden="true"><span class="tn"></span><span class="qs">${cells(periodLabel)}</span><span class="sc">T</span></div>` : '';
     const stars = (g.stars || []).map((p, i) => (p ? `<span><b>${[g.away, g.home][i]}</b>${esc(p.name)} <em>${esc(p.line)}</em></span>` : '')).join('');
@@ -963,6 +991,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return `<article class="game card${mine ? ' mine' : ''}">
       <div class="gtop"><div class="tags">${tags || (st.tag ? `<span class="tag">${st.tag}</span>` : '')}</div>${gameStatus(g)}</div>
       <div class="teams">${head}${teamRow(g.away, 0)}${teamRow(g.home, 1)}</div>
+      ${chance == null ? '' : winBar(g.away, g.home, chance)}
       ${tale ? `<p class="story">${esc(tale)}</p>` : ''}
       ${outcomeRow(g.away, g.home, done && !homeWon)}${outcomeRow(g.home, g.away, done && homeWon)}
       ${foot}
@@ -1267,6 +1296,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     }
     html += `<section class="sect card"><h2>How this works</h2>
       <p>Results and live scores come from ESPN. Preseason lines are ${esc(D.meta.linesSource)}; "vs Vegas" grades every pick against those, scaled down slightly because the posted lines add up to ${Object.values(TEAMS).reduce((a, t) => a + t.line, 0).toLocaleString()} wins and a season only has 1,230. The bots draft from the lines as posted. Title odds come from ${(D.meta.model.simsNow || 12000).toLocaleString()} simulations of the rest of the season, using each team's current win total from Kalshi's betting market, taken each morning. If the market is unavailable, each team's preseason line blended with its record stands in.</p>
+      <p>A live game's chance to win is our own and uses three things only: the score, the time left and who has the ball (worked out from the last play; the orange dot). Nothing about the teams, their records or the betting line. It's the chance the current margin survives the rest of the game when the scoring left is treated as random, with a spread of 18.5 points over a full game that shrinks as time runs out (Hal Stern's 1994 random-walk model of NBA scores). 18.5 is the value that best predicted the winners of last season's 1,231 games from each quarter break: teams up 7 to 9 after three quarters, for example, come out at 80% and actually won 77%. Having the ball counts as half a possession, about half a point, rising to a full possession over the last 24 seconds, when it's likely the last shot. ESPN's free data has no shot clock.</p>
       <p class="note">Standings refresh every 15 minutes during game hours; scores on this page update every 30 seconds while games are on.</p></section>`;
     $('view-draft').innerHTML = html;
   }
@@ -1411,10 +1441,26 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       });
     }
     const period = Number(h.status && h.status.period) || 0;
+    const state = t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre';
+    const playSide = (p) => sideOf(byId[String(p.team && p.team.id)]);
+    const wp = state === 'pre' ? { series: null, ball: null } : winSeries(j.plays || [], playSide, state === 'final');
+    // ESPN's highlight clips (the adaptive stream, with the full-size file as a fallback) and its game recap.
+    const https = (u) => (/^https:\/\//.test(u || '') ? u : '');
+    const clips = (j.videos || []).map((v) => {
+      const src = (v.links && v.links.source) || {};
+      return { title: v.headline || '', secs: Number(v.duration) || 0, thumb: https(v.thumbnail),
+        hls: https(src.HLS && src.HLS.href), mp4: https((src.HD && src.HD.href) || src.href) };
+    }).filter((c) => c.hls || c.mp4);
+    const longest = clips.reduce((m, c, i) => (c.secs > clips[m].secs ? i : m), 0);
+    if (clips[longest] && clips[longest].secs >= 45) clips.unshift(clips.splice(longest, 1)[0]);  // ESPN's game package first
+    clips.splice(12);
+    const a = j.article;
+    const recap = a && /recap/i.test(a.type || '') && a.story ? { title: a.headline || '', source: a.source || '', paras: storyParas(a.story) } : null;
     return {
-      state: t.completed ? 'final' : t.state === 'in' ? 'live' : 'pre', clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home,
+      state, clock: clockText(h.status), tip: h.date, away: sides.away, home: sides.home,
       players, plays, period, pause: pauseOf(h.status), stats: stats[0] && stats[1] ? stats : null, stars, fouls,
-      flow: playFlow(j.plays || [], (p) => sideOf(byId[String(p.team && p.team.id)]), period, (s, name) => key[s].has(name)),
+      flow: playFlow(j.plays || [], playSide, period, (s, name) => key[s].has(name)),
+      wp: wp.series, ball: wp.ball, clips, recap,
     };
   }
 
@@ -1460,11 +1506,12 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       <p class="sh-sub">${[status, esc(when)].filter(Boolean).join(' · ')}</p></div>${closeBtn}</div>`;
     if (on) {
       const n = Math.max(4, b.away.lines.length, b.home.lines.length);
-      const row = (sd) => `<tr><th>${teamChip(b[sd].team)}</th>${Array.from({ length: n }, (_, i) => `<td>${Number.isFinite(b[sd].lines[i]) ? b[sd].lines[i] : ''}</td>`).join('')}<td class="t">${b[sd].score}</td></tr>`;
+      const row = (sd) => `<tr><th>${teamChip(b[sd].team)}${b.ball === (sd === 'home' ? 1 : 0) ? '<i class="ball" title="Has the ball"></i>' : ''}</th>${Array.from({ length: n }, (_, i) => `<td>${Number.isFinite(b[sd].lines[i]) ? b[sd].lines[i] : ''}</td>`).join('')}<td class="t">${b[sd].score}</td></tr>`;
       html += `<div class="tblwrap"><table class="ls"><thead><tr><th></th>${Array.from({ length: n }, (_, i) => `<th>${periodLabel(i)}</th>`).join('')}<th>T</th></tr></thead>
         <tbody>${row('away')}${row('home')}</tbody></table></div>`;
       const tale = gameStory(summaryView(b), 3);
       if (tale) html += `<p class="story bx-story">${esc(tale)}</p>`;
+      html += wpChart(b);
     }
     const done = b && b.state === 'final';
     const homeWon = done && b.home.score > b.away.score;
@@ -1473,9 +1520,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       html += box.failed ? '<p class="note bx-msg">Couldn\'t load the box score from ESPN.</p><button type="button" class="btn ghost" data-box-retry>Try again</button>'
         : '<p class="note bx-msg">Loading the box score…</p>';
     } else {
-      const tabs = [['away', TEAMS[b.away.team].name], ['home', TEAMS[b.home.team].name], ['plays', 'Plays']];
-      html += `<div class="seg bx-seg" role="tablist" aria-label="Box score">${tabs.map(([k, label]) => `<button type="button" role="tab" aria-selected="${k === box.side}" data-box-side="${k}">${esc(label)}</button>`).join('')}</div>`;
-      html += box.side === 'plays' ? playsHtml(b) : playersHtml(b.players[b[box.side].team]);
+      const media = b.clips.length || b.recap;
+      const tabs = [['away', TEAMS[b.away.team].name], ['home', TEAMS[b.home.team].name], ['plays', 'Plays'], ...(media ? [['recap', b.recap ? 'Recap' : 'Video']] : [])];
+      const side = box.side === 'recap' && !media ? 'away' : box.side;
+      html += `<div class="seg bx-seg" role="tablist" aria-label="Box score">${tabs.map(([k, label]) => `<button type="button" role="tab" aria-selected="${k === side}" data-box-side="${k}">${esc(label)}</button>`).join('')}</div>`;
+      html += side === 'plays' ? playsHtml(b) : side === 'recap' ? recapHtml(b) : playersHtml(b.players[b[side].team]);
     }
     html += `<p class="note bx-src">${b && b.state === 'live' ? `Updates every ${BOX_LIVE / 1000} seconds. ` : ''}<a href="https://www.espn.com/nba/game/_/gameId/${encodeURIComponent(box.id)}" target="_blank" rel="noopener">Full game on ESPN ›</a></p>`;
     return html;
@@ -1525,7 +1574,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       changed = !b.data;  // a failed refresh keeps the last good box score on screen
       b.failed = !b.data;
     }
-    if (changed) renderBox();
+    if (changed && b.side !== 'recap') renderBox();  // never redraw over a highlight that's playing
     if (b.data && b.data.state === 'live') b.timer = setTimeout(loadBox, BOX_LIVE);
   }
 
@@ -1794,6 +1843,138 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       .map((f) => f.text.charAt(0).toUpperCase() + f.text.slice(1) + '.').join(' ');
   }
 
+  /* ---------- live win probability: from the score, the clock and the ball, nothing else ----------
+     No betting line, no records, no home court. The final margin is the current lead plus normal noise
+     with a standard deviation of 18.5 points over a full game, shrinking with the square root of the
+     time left (Stern's 1994 random-walk model of NBA scoring, with neither team favored). 18.5 best
+     predicted the winners of the 1,231 games of 2025-26 from each quarter break
+     (scripts/calibrate_win_prob.py). The time left never counts as under 30 seconds, since the last
+     possessions are lumpier than the formula. The team with the ball gets credit for half a
+     possession's points (about 1.1 a possession), rising to a whole one as the game's last shot clock
+     runs down. */
+  const MARGIN_SD = 18.5, POSSESSION = 1.1;
+  function erf(x) {  // Abramowitz and Stegun 7.1.26, accurate to about 1e-7
+    const a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
+    const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a);
+    return x < 0 ? -y : y;
+  }
+  // The home team's chance. lead: home minus away; ball: 1 home, 0 away, null when nobody has it.
+  function winProb(lead, minutesLeft, ball) {
+    const edge = ball == null ? 0 : (ball === 1 ? 1 : -1) * POSSESSION * (0.5 + 0.5 * Math.exp(-minutesLeft * 60 / 24));
+    return 0.5 * (1 + erf((lead + edge) / (MARGIN_SD * Math.sqrt(Math.max(minutesLeft, 0.5) / 48)) / Math.SQRT2));
+  }
+  // ESPN's clock reads "4:58", or seconds ("32.8") in a period's last minute.
+  const clockMinutes = (c) => {
+    const s = String(c || '0');
+    if (!s.includes(':')) return (Number(s) || 0) / 60;
+    const [m, sec] = s.split(':').map(Number);
+    return (m || 0) + (sec || 0) / 60;
+  };
+  // Minutes left in the game; a tie when time runs out means overtime.
+  function minutesLeft(period, clock, pause, tied) {
+    let left = pause ? (period <= 4 ? (4 - period) * 12 : 0) : period <= 4 ? (4 - period) * 12 + clockMinutes(clock) : clockMinutes(clock);
+    if (left <= 0 && tied) left = 5;
+    return left;
+  }
+  // Who has the ball after a play, from ESPN's play type and text: a made basket or a turnover gives it
+  // to the other team, a rebound to the rebounder, a foul to the team fouled. Nobody has it while a shot
+  // is in the air, after a jump ball or between periods. prev is the ball before; side the play's team.
+  const TURNOVER = /turnover|traveling|shot clock|double dribble|out of bounds|step out|backcourt|palming|discontinue|second violation|offensive goaltending|kicked ball/;
+  function ballAfter(prev, p, side) {
+    const type = ((p.type && p.type.text) || '').toLowerCase(), text = (p.text || '').toLowerCase(), both = `${type} ${text}`;
+    if (/end of (the )?(1st|2nd|3rd|4th|quarter|half|game|period|overtime)|end period|end game/.test(both)) return null;
+    if (/substitution|timeout|replay|review|ejection|technical|delay of game/.test(both) || side == null) return prev;
+    if (/free throw/.test(both)) {
+      const m = /(\d) of (\d)/.exec(text);
+      if (m && m[1] !== m[2]) return side;  // more free throws to come
+      return p.scoringPlay ? 1 - side : null;  // a missed last free throw is a loose ball
+    }
+    if (/rebound/.test(type)) return side;
+    if (TURNOVER.test(both) || /foul/.test(type)) return 1 - side;
+    if (p.scoringPlay) return 1 - side;
+    if (p.shootingPlay || /jump ball/.test(both)) return null;
+    return prev;
+  }
+  // The home team's chance after every play, against minutes played, and who has the ball at the end.
+  function winSeries(all, sideOf, final) {
+    const series = [[0, 0.5]];
+    let a = 0, h = 0, end = 0, ball = null;
+    for (const p of all) {
+      const per = p.period && p.period.number;
+      if (!per) continue;
+      ball = ballAfter(ball, p, sideOf(p));
+      if (Number.isFinite(Number(p.awayScore))) a = Number(p.awayScore);
+      if (Number.isFinite(Number(p.homeScore))) h = Number(p.homeScore);
+      const inPer = clockMinutes(p.clock && p.clock.displayValue);
+      end = per <= 4 ? (per - 1) * 12 + (12 - inPer) : 48 + (per - 5) * 5 + (5 - inPer);
+      const left = per <= 4 ? (4 - per) * 12 + inPer : inPer;
+      series.push([end, winProb(h - a, left <= 0 && h === a ? 5 : left, ball)]);
+    }
+    if (final && a !== h) series.push([end, h > a ? 1 : 0]);
+    return { series, ball: final ? null : ball };
+  }
+  // Who has the ball in a live game: from the scoreboard's last play, else the play-by-play if it's current.
+  function liveBall(g) {
+    if (g.state !== 'live') return null;
+    if (g.ball != null) return g.ball;
+    const have = summaries.get(g.id);
+    const s = have && have.data;
+    return s && s.state === 'live' && g.score && s.away.score === g.score[0] && s.home.score === g.score[1] ? s.ball : null;
+  }
+  function liveWin(g, ball) {
+    if (g.state !== 'live' || !g.score) return null;
+    const lead = g.score[1] - g.score[0];
+    return winProb(lead, minutesLeft(g.period, g.gameClock, g.pause, lead === 0), ball);
+  }
+  const chanceText = (away, home, p) => (Math.abs(p - 0.5) < 0.005 ? 'Even' : `${p > 0.5 ? home : away} ${pct(Math.max(p, 1 - p))}`);
+  // A live game's chances as a bar in the two teams' colors.
+  function winBar(away, home, p) {
+    return `<div class="wp"><span class="wpbar" aria-hidden="true"><i style="flex:${(1 - p).toFixed(3)};background:${teamColor(away)}"></i><i style="flex:${p.toFixed(3)};background:${teamColor(home)}"></i></span>
+      <span class="wpl">${esc(chanceText(away, home, p))} to win</span></div>`;
+  }
+  // The chances through the game: the away team's side of the line on top, the home team's below.
+  function wpChart(b) {
+    const s = b.wp;
+    if (!s || s.length < 3) return '';
+    const W = 300, H = 90, end = Math.max(48, s[s.length - 1][0]);
+    const x = (m) => (m / end * W).toFixed(1), y = (p) => (p * H).toFixed(1);
+    const line = s.map(([m, p], i) => `${i ? 'L' : 'M'}${x(m)},${y(p)}`).join('');
+    const area = `${line}L${x(s[s.length - 1][0])},${H / 2}L0,${H / 2}Z`;
+    const grid = [12, 24, 36, ...(end > 48 ? [48] : [])].map((m) => `<line class="wpg" x1="${x(m)}" x2="${x(m)}" y1="0" y2="${H}"/>`).join('');
+    const p = s[s.length - 1][1];
+    return `<div class="wpc"><div class="wpc-k"><span>${esc(b.away.team)}</span><span>${esc(b.home.team)}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Chance to win through the game">
+        <defs><clipPath id="wpTop"><rect width="${W}" height="${H / 2}"/></clipPath><clipPath id="wpBot"><rect y="${H / 2}" width="${W}" height="${H / 2}"/></clipPath></defs>
+        <path class="wpa" d="${area}" fill="${teamColor(b.away.team)}" clip-path="url(#wpTop)"/><path class="wpa" d="${area}" fill="${teamColor(b.home.team)}" clip-path="url(#wpBot)"/>
+        ${grid}<line class="wpm" x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}"/><path class="wpline" d="${line}"/></svg></div>
+      <p class="note">Chance to win${b.state === 'live' ? ` right now: ${esc(chanceText(b.away.team, b.home.team, p))}` : ' through the game'}. From the score, the time left and who has the ball only; how it works is on the Draft tab.</p>`;
+  }
+
+  // The recap's paragraphs as plain text: ESPN sends HTML with player links, subheads and a few broken
+  // characters. Parsing it as an inert document runs nothing, and only its text is kept.
+  function storyParas(html) {
+    const marked = String(html).replace(/<hl2>/gi, '\n\n## ').replace(/<\/hl2>/gi, '\n\n');
+    const text = new DOMParser().parseFromString(marked, 'text/html').body.textContent || '';
+    return text.replace(/[\u0080-\u009f�]/g, '').replace(/\s*--\s*(—\s*)?/g, ' — ')  // "PHILADELPHIA -- — Tyrese" -> "PHILADELPHIA — Tyrese"
+      .split(/\n\s*\n/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  }
+  const clipTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+  // Highlights play right here (an iPhone streams them at phone quality), then ESPN's recap story.
+  function recapHtml(b) {
+    const i = Math.min(box.clip || 0, Math.max(b.clips.length - 1, 0)), c = b.clips[i];
+    let html = '';
+    if (c) {
+      html += `<div class="hl"><video id="hlVideo" controls playsinline preload="none"${c.thumb ? ` poster="${esc(c.thumb)}"` : ''}>${c.hls ? `<source src="${esc(c.hls)}" type="application/x-mpegURL">` : ''}${c.mp4 ? `<source src="${esc(c.mp4)}" type="video/mp4">` : ''}</video>
+        <p class="hl-t">${esc(c.title)}</p></div>`;
+      if (b.clips.length > 1) html += `<div class="clips">${b.clips.map((x, j) => `<button type="button" class="clip${j === i ? ' on' : ''}" data-clip="${j}">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ''}<span>${esc(x.title)}</span><em>${clipTime(x.secs)}</em></button>`).join('')}</div>`;
+    }
+    if (b.recap) {
+      html += `<article class="recap-art"><h3>${esc(b.recap.title)}</h3>${b.recap.paras.map((p) => (p.startsWith('## ') ? `<h4>${esc(p.slice(3))}</h4>` : `<p>${esc(p)}</p>`)).join('')}
+        <p class="note">${esc(b.recap.source || 'ESPN')} recap, via ESPN.</p></article>`;
+    }
+    return html || '<p class="note bx-msg">Highlights show up here during the game, and the recap after it.</p>';
+  }
+
   // Live cards tell their story from each game's play-by-play, fetched in the background about once a
   // minute while the Tonight tab is open (a finished game's just once).
   let storyBusy = false;
@@ -1919,10 +2100,16 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const known = D.slate.find((g) => g.id === String(e.id));
       const scores = [sides.away.score, sides.home.score];
       const started = state !== 'pre';  // before tip-off ESPN's leaders and stats are season averages
+      // Who has the ball, from the last play (the scoreboard doesn't say outright).
+      const lp = state === 'live' && c.situation && c.situation.lastPlay;
+      const sideById = {};
+      for (const k of c.competitors || []) sideById[String((k.team && k.team.id) || k.id)] = k.homeAway === 'home' ? 1 : 0;
+      const ball = lp ? ballAfter(null, { type: lp.type, text: lp.text, scoringPlay: Number(lp.scoreValue) > 0, shootingPlay: /\b(makes|misses|blocks)\b/i.test(lp.text || '') },
+        lp.team ? sideById[String(lp.team.id)] : null) : null;
       games.push({
         id: String(e.id), day, away: sides.away.t, home: sides.home.t, tip: e.date, state,
         score: started && scores.every(Number.isFinite) ? scores : null,
-        clock: clockText(c.status),
+        clock: clockText(c.status), gameClock: (c.status && c.status.displayClock) || '', ball,
         period: Number(c.status && c.status.period) || 0, pause: pauseOf(c.status),
         spread: odds && odds.spread != null && Number.isFinite(Number(odds.spread)) ? Number(odds.spread) : known && known.spread != null ? known.spread : null,
         leverage: known && known.leverage != null ? known.leverage : null,
@@ -2082,6 +2269,13 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     }
     if (t.dataset.box) return openBox(t.dataset.box, t.dataset.from);
     if (t.dataset.boxSide && box) { box.side = t.dataset.boxSide; return renderBox(); }
+    if (t.dataset.clip != null && box) {
+      box.clip = Number(t.dataset.clip);
+      renderBox();
+      const v = $('hlVideo');
+      if (v) { v.scrollIntoView({ block: 'nearest' }); v.play().catch(() => {}); }
+      return;
+    }
     if (t.hasAttribute('data-box-retry') && box) { box.failed = false; renderBox(); return loadBox(); }
     if (t.dataset.team) return openPick(t.dataset.team, t.dataset.side);
     if (t.dataset.metric) { state.metric = t.dataset.metric; state.scrub = null; return renderRace(); }

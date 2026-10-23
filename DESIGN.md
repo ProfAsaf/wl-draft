@@ -52,7 +52,7 @@ The group drafted 29 of the 30 options the lines valued most. The exception is U
 
 ## Screens
 
-Bottom tab bar: Standings, Tonight, Race, Draft. The first visit asks "Who are you?" and remembers the answer on that phone, to highlight your row and tailor Tonight. All times are shown in the viewer's own time zone. In the sketches the viewer is Asaf.
+Bottom tab bar: Standings, Tonight, Race, Draft. Swiping left or right also moves between them: the tabs sit side by side and page under the finger, each keeping its own scroll position (except across the race chart, where a sideways drag moves through the season, and while reordering games). The first visit asks "Who are you?" and remembers the answer on that phone, to highlight your row and tailor Tonight. All times are shown in the viewer's own time zone. In the sketches the viewer is Asaf.
 
 ### Standings (home)
 

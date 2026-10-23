@@ -1579,8 +1579,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       if (a - h > deficit[1]) { deficit[1] = a - h; deficitAt[1] = i; }
       const lead = a > h ? 0 : h > a ? 1 : null;
       if (lead != null && lead !== ahead) {
-        if (last != null && lead !== last) leadChanges++;
-        goAhead = x.name ? { side: lead, name: x.name, shot: shotWord(x.p.text), period: (x.p.period && x.p.period.number) || 0, clock: (x.p.clock && x.p.clock.displayValue) || '' } : null;
+        const flip = last != null && lead !== last;  // took the lead from the other team, not just from a tie or 0-0
+        if (flip) leadChanges++;
+        goAhead = x.name ? { side: lead, flip, name: x.name, shot: shotWord(x.p.text), period: (x.p.period && x.p.period.number) || 0, clock: (x.p.clock && x.p.clock.displayValue) || '' } : null;
         last = lead;
       }
       ahead = lead;
@@ -1720,7 +1721,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       add('flow', 45 + margin / 2, `${The(L)} ${fin ? 'led' : 'have led'} by as many as ${most}${star ? ` behind ${star.name}’s ${star.pts} points` : ''}`, star && star.name);
     }
     const ga = fl && fl.goAhead;
-    if (ga && L === ga.side && (fin ? margin <= 10 : ga.period === v.period)) {
+    if (ga && L === ga.side && (fin ? margin <= 10 : ga.flip && ga.period === v.period && v.period >= 4)) {
       const when = ga.clock === '0.0' ? ' at the buzzer' : ` with ${ga.clock} left${fin || ga.period !== v.period ? ' in ' + pthe(ga.period) : ''}`;
       add('flow', 55, `${ga.name}’s ${ga.shot}${when} put ${the(ga.side)} ahead${fin ? ' for good' : ''}`, ga.name);
     }

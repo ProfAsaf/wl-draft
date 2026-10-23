@@ -482,14 +482,27 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .plays .sw { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: 0; }
 .plays .ps { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .plays li.scored .px { color: var(--ink); font-weight: 600; }
-.wpc { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; margin-top: 12px; }
-.wpc-k { display: flex; flex-direction: column; justify-content: space-between; font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink-2); }
-.wpc svg { display: block; width: 100%; height: 90px; }
+.wpc { margin-top: 14px; }
+.wpc-seg { display: inline-grid; padding: 0; background: none; }
+.wpc-seg button { min-height: 30px; padding: 0 12px; font-size: 15px; box-shadow: inset 0 0 0 1px var(--line); }
+.wpc-seg button[aria-selected="true"] { box-shadow: none; }
+/* Team names down the left, the chart, its scale down the right; the periods underneath. */
+.wpc-plot { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 8px; margin-top: 16px; }
+.wpc-k { display: flex; flex-direction: column; justify-content: space-between; }
+.wpc-k .tm { font-size: 14px; }
+.wpc-area { position: relative; }
+.wpc svg { display: block; width: 100%; height: 120px; }
 .wpc .wpa { opacity: 0.35; }
 .wpc .wpg { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .wpc .wpm { stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .wpc .wpline { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.wpc + .note { margin-top: 4px; }
+.wpc-dot { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+.wpc-y, .wpc-x { position: relative; font-family: var(--font-display); font-weight: 600; font-size: 12.5px; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wpc-y { min-width: 30px; }
+.wpc-y span { position: absolute; right: 0; transform: translateY(-50%); white-space: nowrap; }
+.wpc-x { grid-column: 2; height: 18px; }
+.wpc-x span { position: absolute; top: 5px; transform: translateX(-50%); }
+.wpc .note { margin-top: 6px; }
 .bx-seg button { padding-inline: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hl { margin-top: 12px; }
 .hl video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #000; }
@@ -643,7 +656,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   let pollTimer = 0;
   const extra = new Map();   // finals from days data.json hasn't recorded yet, fetched from ESPN
   const filled = new Set();  // those days, once every game on them is final
-  const state = { tab: 'standings', me: null, expanded: null, head: 0, metric: 'pct', focus: null, scrub: null, botOpen: null };
+  const state = { tab: 'standings', me: null, expanded: null, head: 0, metric: 'pct', focus: null, scrub: null, botOpen: null,
+    gameChart: store.get('wl-gchart') === 'margin' ? 'margin' : 'chance' };  // the box score's chart, kept on this phone
   const opened = new Set();  // fold-away sections left open, so a re-render doesn't close them
   const pc = (s) => `--pc:var(--p${s + 1})`;
 
@@ -1830,7 +1844,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
         <tbody>${row('away')}${row('home')}</tbody></table></div>`;
       const tale = gameStory(summaryView(b), 3);
       if (tale) html += `<p class="story bx-story">${esc(tale)}</p>`;
-      html += wpChart(b);
+      html += gameChart(b);
     }
     const done = b && b.state === 'final';
     const homeWon = done && b.home.score > b.away.score;
@@ -2214,9 +2228,10 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     if (p.shootingPlay || /jump ball/.test(both)) return null;
     return prev;
   }
-  // The home team's chance after every play, against minutes played, and who has the ball at the end.
+  // After every play: minutes played, the home team's chance and the home team's lead. Then who has the
+  // ball at the end.
   function winSeries(all, sideOf, final) {
-    const series = [[0, 0.5]];
+    const series = [[0, 0.5, 0]];
     let a = 0, h = 0, end = 0, ball = null;
     for (const p of all) {
       const per = p.period && p.period.number;
@@ -2227,9 +2242,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       const inPer = clockMinutes(p.clock && p.clock.displayValue);
       end = per <= 4 ? (per - 1) * 12 + (12 - inPer) : 48 + (per - 5) * 5 + (5 - inPer);
       const left = per <= 4 ? (4 - per) * 12 + inPer : inPer;
-      series.push([end, winProb(h - a, left <= 0 && h === a ? 5 : left, ball)]);
+      series.push([end, winProb(h - a, left <= 0 && h === a ? 5 : left, ball), h - a]);
     }
-    if (final && a !== h) series.push([end, h > a ? 1 : 0]);
+    if (final && a !== h) series.push([end, h > a ? 1 : 0, h - a]);
     return { series, ball: final ? null : ball };
   }
   // Who has the ball in a live game: from the scoreboard's last play, else the play-by-play if it's current.
@@ -2251,22 +2266,54 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return `<div class="wp"><span class="wpbar" aria-hidden="true"><i style="flex:${(1 - p).toFixed(3)};background:${teamColor(away)}"></i><i style="flex:${p.toFixed(3)};background:${teamColor(home)}"></i></span>
       <span class="wpl">${esc(chanceText(away, home, p))} to win</span></div>`;
   }
-  // The chances through the game: the away team's side of the line on top, the home team's below.
-  function wpChart(b) {
+  // The game in one picture, either each team's chance to win or the score margin, play by play. The away
+  // team's side is on top and the home team's below, as in the rows above it. The scale runs down the
+  // right edge, the periods along the bottom; a dot marks where a live game is now.
+  const periodAt = (m) => (m <= 48 ? Math.max(1, Math.ceil(m / 12)) : 4 + Math.ceil((m - 48) / 5));
+  function gameChart(b) {
     const s = b.wp;
     if (!s || s.length < 3) return '';
-    const W = 300, H = 90, end = Math.max(48, s[s.length - 1][0]);
-    const x = (m) => (m / end * W).toFixed(1), y = (p) => (p * H).toFixed(1);
-    const line = s.map(([m, p], i) => `${i ? 'L' : 'M'}${x(m)},${y(p)}`).join('');
-    const area = `${line}L${x(s[s.length - 1][0])},${H / 2}L0,${H / 2}Z`;
-    const grid = [12, 24, 36, ...(end > 48 ? [48] : [])].map((m) => `<line class="wpg" x1="${x(m)}" x2="${x(m)}" y1="0" y2="${H}"/>`).join('');
-    const p = s[s.length - 1][1];
-    return `<div class="wpc"><div class="wpc-k"><span>${esc(b.away.team)}</span><span>${esc(b.home.team)}</span></div>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Chance to win through the game">
-        <defs><clipPath id="wpTop"><rect width="${W}" height="${H / 2}"/></clipPath><clipPath id="wpBot"><rect y="${H / 2}" width="${W}" height="${H / 2}"/></clipPath></defs>
-        <path class="wpa" d="${area}" fill="${teamColor(b.away.team)}" clip-path="url(#wpTop)"/><path class="wpa" d="${area}" fill="${teamColor(b.home.team)}" clip-path="url(#wpBot)"/>
-        ${grid}<line class="wpm" x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}"/><path class="wpline" d="${line}"/></svg></div>
-      <p class="note">Chance to win${b.state === 'live' ? ` right now: ${esc(chanceText(b.away.team, b.home.team, p))}` : ' through the game'}. From the score, the time left and who has the ball only; how it works is on the Draft tab.</p>`;
+    const margin = state.gameChart === 'margin', away = b.away.team, home = b.home.team, now = s[s.length - 1];
+    const W = 300, H = 120, end = Math.max(48, now[0]);
+    const top = Math.max(10, Math.ceil(Math.max(...s.map((r) => Math.abs(r[2]))) / 10) * 10);  // margin scale: round points either way
+    const at = (r) => (margin ? 0.5 + r[2] / top / 2 : r[1]);  // 0 is the top edge, 1 the bottom
+    const x = (m) => (m / end * W).toFixed(1), y = (r) => (at(r) * H).toFixed(1);
+    // A lead changes all at once, so the margin moves in steps; the chance moves play by play.
+    const line = s.map((r, i) => (!i ? `M0,${y(r)}` : margin ? `H${x(r[0])}V${y(r)}` : `L${x(r[0])},${y(r)}`)).join('');
+    const area = `${line}V${H / 2}H0Z`;
+    const cuts = [12, 24, 36];
+    for (let m = 48; m < end; m += 5) cuts.push(m);
+    const grid = cuts.map((m) => `<line class="wpg" x1="${x(m)}" x2="${x(m)}" y1="0" y2="${H}"/>`).join('')
+      + [0.25, 0.75].map((f) => `<line class="wpg" x1="0" x2="${W}" y1="${f * H}" y2="${f * H}"/>`).join('');
+    const scale = margin ? [`+${top}`, `+${top / 2}`, 'Tied', `+${top / 2}`, `+${top}`] : ['100%', '75%', '50%', '75%', '100%'];
+    const periods = [0, ...cuts, end].slice(0, -1).map((m, i, all) => `<span style="left:${((m + ((all[i + 1] ?? end) - m) / 2) / end * 100).toFixed(1)}%">${i < 4 ? ordinal(i + 1) : periodName(i + 1)}</span>`).join('');
+    const dot = b.state === 'live' ? `<i class="wpc-dot" style="left:${(now[0] / end * 100).toFixed(1)}%;top:${(at(now) * 100).toFixed(1)}%"></i>` : '';
+    const opt = (k, label) => `<button type="button" role="tab" aria-selected="${state.gameChart === k}" data-gchart="${k}">${label}</button>`;
+    let note;
+    if (margin) {
+      const most = (team, sign) => {  // a team's biggest lead and when
+        let best = null;
+        for (const r of s) if (sign * r[2] > 0 && (!best || sign * r[2] > sign * best[2])) best = r;
+        const per = best && periodAt(best[0]);
+        return best && { team, pts: sign * best[2], when: per <= 4 ? `the ${ordinal(per)}` : periodName(per) };
+      };
+      const leads = [most(away, -1), most(home, 1)];
+      const said = leads.filter(Boolean).map((l) => `${l.team} by ${l.pts} in ${l.when}`);
+      const never = [away, home].filter((t, i) => !leads[i]);
+      note = (b.state === 'live' ? (now[2] ? `${now[2] > 0 ? home : away} up ${Math.abs(now[2])} right now. ` : 'Tied right now. ') : '')
+        + (said.length ? `Biggest lead${said.length > 1 ? 's' : ''}: ${said.join(', ')}.` : '') + never.map((t) => ` ${t} never led.`).join('');
+    } else {
+      note = `${b.state === 'live' ? `Chance to win right now: ${chanceText(away, home, now[1])}.` : 'Each team’s chance to win through the game.'} From the score, the time left and who has the ball only; how it works is on the Draft tab.`;
+    }
+    return `<div class="wpc"><div class="seg wpc-seg" role="tablist" aria-label="Chart">${opt('chance', 'Win chance')}${opt('margin', 'Score margin')}</div>
+      <div class="wpc-plot"><div class="wpc-k">${teamChip(away)}${teamChip(home)}</div>
+        <div class="wpc-area"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${margin ? 'Score margin' : 'Chance to win'} through the game">
+          <defs><clipPath id="wpTop"><rect width="${W}" height="${H / 2}"/></clipPath><clipPath id="wpBot"><rect y="${H / 2}" width="${W}" height="${H / 2}"/></clipPath></defs>
+          <path class="wpa" d="${area}" fill="${teamColor(away)}" clip-path="url(#wpTop)"/><path class="wpa" d="${area}" fill="${teamColor(home)}" clip-path="url(#wpBot)"/>
+          ${grid}<line class="wpm" x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}"/><path class="wpline" d="${line}"/></svg>${dot}</div>
+        <div class="wpc-y" aria-hidden="true">${scale.map((t, i) => `<span style="top:${i * 25}%">${t}</span>`).join('')}</div>
+        <div class="wpc-x" aria-hidden="true">${periods}</div></div>
+      <p class="note">${esc(note)}</p></div>`;
   }
 
   // The recap's paragraphs as plain text: ESPN sends HTML with player links, subheads and a few broken
@@ -2636,6 +2683,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     }
     if (t.dataset.box) return openBox(t.dataset.box, t.dataset.from);
     if (t.dataset.boxSide && box) { box.side = t.dataset.boxSide; return renderBox(); }
+    if (t.dataset.gchart && box) {
+      state.gameChart = t.dataset.gchart;
+      store.set('wl-gchart', state.gameChart);
+      return renderBox();
+    }
     if (t.dataset.clip != null && box) {
       box.clip = Number(t.dataset.clip);
       renderBox();

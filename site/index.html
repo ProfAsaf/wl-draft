@@ -2264,6 +2264,22 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     } catch (e) { /* keep showing what we have */ }
   }
 
+  /* As a home-screen app with the see-through status bar, recent iPhones lay the page out short by the
+     status bar's height, which leaves a band of background under the tab bar (pinning the page to the
+     screen's edges hits the same short edge). When the page is short by about that much, stretch it to
+     the screen's real height; a bigger gap is a genuinely smaller window, so it's left alone. */
+  function fitScreen() {
+    const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+    const full = matchMedia('(orientation: landscape)').matches ? screen.width : screen.height;
+    const gap = full - innerHeight;
+    const stretch = standalone && gap > 0 && gap <= 100;
+    document.body.style.height = stretch ? `${full}px` : '';
+    document.body.style.bottom = stretch ? 'auto' : '';
+  }
+  fitScreen();
+  addEventListener('resize', fitScreen);
+  addEventListener('orientationchange', () => setTimeout(fitScreen, 300));
+
   /* ---------- wiring ---------- */
   // Like an iPhone tab bar: each tab keeps its place, and tapping the tab you're on goes back to the top.
   // where: 'keep' (the tab's last place), 'top', or 'stay' (leave the scroller alone, at startup).

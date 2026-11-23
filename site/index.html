@@ -155,6 +155,8 @@ h1, h2, h3, p { margin: 0; }
 .headline .dots { display: flex; gap: 5px; }
 .headline .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); }
 .headline .dots i.on { background: var(--ink-2); }
+.headline.asaf { box-shadow: inset 0 0 0 2px var(--pc); }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 60; pointer-events: none; }
 
 /* Standings board */
 .board { overflow: hidden; }
@@ -996,11 +998,72 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return `<div class="preview card">${body}<button type="button" class="linkbtn" data-goto="tonight">See all ${slate.length} games →</button></div>`;
   }
 
+  // Asaf's request: whenever Asaf is in first (a tie counts, once a game has), the headline says so, and
+  // opening the app shoots confetti. Tapping the headline shoots it again.
+  const asafLeads = () => FINALS.length > 0 && ROWS.some((r) => r.rank === 1 && r.name === 'Asaf');
+
+  // Confetti from both bottom corners in the five players' colors, for a few seconds. Not for anyone
+  // who has asked their phone for less motion.
+  function confetti() {
+    if (reduceMotion) return;
+    if ($('confetti')) $('confetti').remove();
+    const cv = document.createElement('canvas');
+    cv.id = 'confetti';
+    cv.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(cv);
+    const W = innerWidth, H = innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = W * dpr;
+    cv.height = H * dpr;
+    const ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const css = getComputedStyle(document.documentElement);
+    const colors = PEOPLE.map((_, s) => css.getPropertyValue(`--p${s + 1}`).trim() || '#ffffff');
+    // Per 60th of a second: gravity 0.25 px and 3% drag carry the fastest pieces most of the way up the
+    // screen, then let them flutter down at about 8 px a frame.
+    const bits = Array.from({ length: 180 }, (_, i) => {
+      const dir = i % 2 ? -1 : 1, tilt = 0.15 + Math.random() * 0.6, speed = H * (0.032 + Math.random() * 0.016);
+      return { x: dir > 0 ? 0 : W, y: H, vx: dir * Math.sin(tilt) * speed, vy: -Math.cos(tilt) * speed, w: 6 + Math.random() * 6, h: 3 + Math.random() * 4,
+        rot: Math.random() * 6.3, spin: (Math.random() - 0.5) * 0.4, flip: Math.random() * 6.3, color: colors[i % colors.length], delay: Math.random() * 14 };
+    });
+    let last = performance.now(), age = 0;
+    const frame = (now) => {
+      const dt = Math.min(3, (now - last) / 16.7);  // in 60ths of a second, so a faster screen isn't faster confetti
+      last = now;
+      age += dt;
+      ctx.clearRect(0, 0, W, H);
+      let flying = 0;
+      for (const b of bits) {
+        if (age < b.delay) { flying++; continue; }
+        const drag = Math.pow(0.97, dt);
+        b.vy = (b.vy + 0.25 * dt) * drag;
+        b.vx *= drag;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        b.rot += b.spin * dt;
+        b.flip += 0.15 * dt;
+        if (b.y > H + 20) continue;
+        flying++;
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.rot);
+        ctx.scale(1, Math.cos(b.flip));  // turning over as it falls
+        ctx.fillStyle = b.color;
+        ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+        ctx.restore();
+      }
+      if (flying && age < 360) requestAnimationFrame(frame);
+      else cv.remove();
+    };
+    requestAnimationFrame(frame);
+  }
+
   function renderStandings() {
     const heads = headlines();
     const h = state.head % heads.length;
     let html = state.me == null ? whoCard() : '';
-    html += `<button type="button" class="headline" id="headline" aria-label="Show the next headline"><span class="q">${esc(heads[h])}</span>
+    html += asafLeads()
+      ? `<button type="button" class="headline asaf" id="headline" style="${pc(PEOPLE.findIndex((p) => p.name === 'Asaf'))}" aria-label="Celebrate again"><span class="q">Asaf is NOT cheating and is the best</span></button>`
+      : `<button type="button" class="headline" id="headline" aria-label="Show the next headline"><span class="q">${esc(heads[h])}</span>
       <span class="dots" aria-hidden="true">${heads.map((_, i) => `<i class="${i === h ? 'on' : ''}"></i>`).join('')}</span></button>`;
     html += `<div class="board card" id="board">
       <div class="bhead"><span class="colhead">#</span><span class="colhead">Name</span><span class="colhead num">Pts</span><span class="colhead num">${DAYCOL.label}</span><span class="colhead num">Pct</span></div>
@@ -2884,7 +2947,11 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       state.botOpen = state.botOpen === s ? null : s;
       return renderDraft();
     }
-    if (t.id === 'headline') { state.head++; return renderStandings(); }
+    if (t.id === 'headline') {
+      if (asafLeads()) return confetti();
+      state.head++;
+      return renderStandings();
+    }
     if (t.id === 'meBtn') return openWho();
     if (t.id === 'replayBtn') return openReplay();
     if (t.id === 'racePlay' && replay) {
@@ -3018,12 +3085,19 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     renderAll();
     renderRace();
     setTab(state.tab, 'stay');
+    if (asafLeads()) confetti();
     poll();
     setInterval(refreshData, DATA_EVERY);
     setInterval(() => { if (D) renderHeader(); }, 60e3);
   }
   boot();
   checkVersion();
+  // A home-screen app stays in memory, so coming back to it after a while counts as opening it again.
+  let awaySince = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) awaySince = Date.now();
+    else if (D && awaySince && Date.now() - awaySince > 10 * 60e3 && asafLeads()) confetti();
+  });
 })();
 </script>
 </body>

@@ -229,6 +229,8 @@ One headline at a time on the home screen. Headlines come from templates trigger
 - "Brian's Thunder are 31-9. Of course they are."
 - "Portland Civil War: Ryan leads Nick 22-18."
 
+At Asaf's request, whenever Asaf is in first (a tie counts), the headlines give way to one line, "Asaf is NOT cheating and is the best", ringed in Asaf's color, and confetti in the five players' colors shoots up from the bottom corners when anyone opens the app (or comes back to it after 10 minutes away) and when the line is tapped. Phones set to reduce motion skip the confetti.
+
 ## Data and updates
 
 ```

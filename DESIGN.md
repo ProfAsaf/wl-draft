@@ -180,6 +180,12 @@ Each started game also gets a short story, written by rules in the page (no AI s
 
 Under the chart, zoom buttons (Season, 4 weeks, 2 weeks, 1 week; a zoom as long as the season so far isn't offered) show just the last few weeks, with the scale fitted to those days so the gaps between players open up. The first days of a season swing wildly (Pct starts at 0 or 1.000), which otherwise squeezes the current race into a thin band. Rank keeps its 1st-5th scale. Dragging scrubs within the zoomed weeks, tapping a moment from before them goes back to the season view, and the choice is kept on that phone.
 
+### Bets
+
+The group asked to bet against the app's title odds. A bet is between two of them and has no money and no stake: one says a player will (or won't) finish first, at the app's title odds right then, and anyone else can take the other side until the poster cancels the offer. When the regular season ends, each taken bet is a win for one and a loss for the other; a tie for first is a push. The tab shows the odds board with "Wins it" and "Won't" for each player, open offers (Take it, or Cancel for your own), taken bets with each side's chance today, and everyone's record: wins and losses, live bets, and the wins those would add up to at today's odds. Bets are made as whoever the phone says is checking, on the honor system.
+
+Bets live on a small server, `bets/worker.js`: a Cloudflare Worker on the free plan with one Durable Object holding the ledger, so every phone sees the same bets at once and two people can't take the same offer. It writes down the title odds itself, from the site's data.json, so an offer can't carry made-up odds, and it turns away requests without the group code (a secret, typed once on each phone and kept there). `.github/workflows/bets.yml` deploys it once the repository has the Cloudflare token, account ID and group code as secrets. Until the page knows the server's address (`BETS_API`), the Bets tab doesn't appear. The tab checks for new offers every 30 seconds while it's open.
+
 ### Draft
 
 ```

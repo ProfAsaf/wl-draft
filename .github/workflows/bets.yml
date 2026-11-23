@@ -1,0 +1,31 @@
+name: Deploy bets server
+
+# The bets server (bets/worker.js) runs on Cloudflare's free plan. This deploys it whenever it
+# changes, once the repository has three secrets: CLOUDFLARE_API_TOKEN (an "Edit Cloudflare
+# Workers" token), CLOUDFLARE_ACCOUNT_ID, and BETS_GROUP_CODE (the code the group types in once).
+on:
+  push:
+    branches: [main]
+    paths: ["bets/**", ".github/workflows/bets.yml"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      READY: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.BETS_GROUP_CODE != '' }}
+    steps:
+      - if: env.READY != 'true'
+        run: echo "Not deployed yet. Add the CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and BETS_GROUP_CODE repository secrets."
+      - uses: actions/checkout@v7
+        if: env.READY == 'true'
+      - uses: cloudflare/wrangler-action@v3
+        if: env.READY == 'true'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: bets
+          secrets: GROUP_CODE
+        env:
+          GROUP_CODE: ${{ secrets.BETS_GROUP_CODE }}

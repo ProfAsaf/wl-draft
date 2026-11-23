@@ -401,6 +401,20 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 .vrow .num { font-size: 18px; font-weight: 600; }
 .vrow .odds { font-weight: 700; color: var(--ink); }
 .vrow .was { color: var(--muted); }
+/* Bets: the odds board, offers, taken bets and everyone's record */
+.bet-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px auto auto; column-gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.bet-row .num { font-size: 17px; font-weight: 700; }
+.bet { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 0 2px; border-top: 1px solid var(--line); }
+.bet .bet-btns { display: flex; gap: 8px; }
+.bet-sides { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ink-2); }
+.bet-code-row { display: flex; gap: 8px; }
+.bet-code-row input {
+  flex: 1; min-width: 0; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line-strong);
+  background: var(--bg); color: var(--ink); font: inherit; font-size: 16px;
+}
+.brec { display: grid; grid-template-columns: minmax(0, 1fr) 48px 40px 76px; column-gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.brec.hd { border-top: 0; padding-block: 0 2px; }
+.brec .num { font-size: 16px; font-weight: 600; }
 .botrow { display: grid; grid-template-columns: minmax(0, 1fr) 40px 52px 44px; column-gap: 8px; align-items: center; width: 100%; padding: 8px 0; border-top: 1px solid var(--line); }
 .botrow.bhd { border-top: 0; padding-block: 0 2px; }
 .botrow .num { font-size: 18px; font-weight: 600; }
@@ -557,7 +571,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   padding-bottom: var(--tabbar-pad);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.tabbar-inner { max-width: 528px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--tabbar-h); }
+.tabbar-inner { max-width: 528px; margin: 0 auto; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); height: var(--tabbar-h); }
 .tabbar button {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; position: relative;
   color: var(--muted); font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em;
@@ -599,6 +613,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   <div class="page" id="page-tonight"><div class="app"><section class="view" id="view-tonight" aria-label="Tonight"></section></div></div>
   <div class="page" id="page-race"><div class="app"><section class="view" id="view-race" aria-label="Race"></section></div></div>
   <div class="page" id="page-draft"><div class="app"><section class="view" id="view-draft" aria-label="Draft"></section></div></div>
+  <div class="page" id="page-bets"><div class="app"><section class="view" id="view-bets" aria-label="Bets"></section></div></div>
 </main>
 
 <nav class="tabbar" aria-label="Sections">
@@ -615,6 +630,9 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     </button>
     <button type="button" data-tab="draft">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>Draft
+    </button>
+    <button type="button" data-tab="bets">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8a1.5 1.5 0 0 1 1.5-1.5h14A1.5 1.5 0 0 1 20.5 8v2.2a1.8 1.8 0 0 0 0 3.6V16a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 16v-2.2a1.8 1.8 0 0 0 0-3.6z"/><path d="M15 7v1.5M15 11v2M15 15.5V17"/></svg>Bets
     </button>
   </div>
 </nav>
@@ -1679,6 +1697,154 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const r = svg.getBoundingClientRect();
     const px = (e.clientX - r.left) * (chart.W / r.width);
     setScrub(chart.i0 + Math.round(((px - chart.m.l) / chart.pw) * (chart.N - 1 - chart.i0)));
+  }
+
+  /* ---------- bets: the friends' title bets, kept on a small server (bets/worker.js) ----------
+     No money and no stakes. A bet is one friend saying a player will or won't finish first and another
+     taking the other side; the app's title odds at the time go with it. Anyone can post an offer and
+     anyone else can take it, until its poster cancels it. Once the regular season is over, each taken
+     bet is a win for one and a loss for the other (a tie for first is a push). The server wants the
+     group code, entered once on each phone. */
+  const BETS_API = location.hostname === 'localhost' ? 'http://localhost:8787' : '';
+  const bets = { list: null, busy: false, error: '' };
+  let betsTimer = 0;
+  const fmtWhen = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  const groupCode = () => store.get('wl-code') || '';
+  const slotOf = (name) => PEOPLE.findIndex((p) => p.name === name);
+  const oddsOf = (name) => D.oddsNow[slotOf(name)];
+  const seasonOver = () => FINALS.length > 0 && !D.ahead.length && !slate.some((g) => g.state !== 'final');
+  // A taken bet's result for its poster once the season is over: 'W', 'L' or 'push'.
+  function betResult(b) {
+    if (!seasonOver()) return null;
+    const firsts = ROWS.filter((r) => r.rank === 1).map((r) => r.name);
+    if (firsts.length > 1 && firsts.includes(b.player)) return 'push';
+    return (b.side === 'yes') === firsts.includes(b.player) ? 'W' : 'L';
+  }
+  async function betsCall(path, body) {
+    const r = await fetch(BETS_API + path, {
+      method: body ? 'POST' : 'GET', cache: 'no-store', body: body ? JSON.stringify(body) : undefined,
+      headers: { 'X-Group-Code': groupCode(), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) {
+      store.set('wl-code', '');
+      throw new Error('That group code didn’t work.');
+    }
+    if (!r.ok) throw new Error(j.error ? j.error.charAt(0).toUpperCase() + j.error.slice(1) + '.' : 'Couldn’t reach the bets server.');
+    return j.bets;
+  }
+  // While the Bets tab is open, check for new offers and takers every 30 seconds.
+  async function loadBets() {
+    clearTimeout(betsTimer);
+    if (!BETS_API || !groupCode() || document.hidden || state.tab !== 'bets') return renderBets();
+    try {
+      bets.list = await betsCall('/bets');
+      bets.error = '';
+    } catch (e) { bets.error = e.message; }
+    renderBets();
+    if (groupCode()) betsTimer = setTimeout(loadBets, 30e3);
+  }
+  async function betAction(path, body, done) {
+    if (bets.busy) return;
+    bets.busy = true;
+    try {
+      bets.list = await betsCall(path, body);
+      bets.error = '';
+      toast(done);
+    } catch (e) { toast(e.message); }
+    bets.busy = false;
+    renderBets();
+  }
+  // Posting, taking and cancelling, each confirmed first.
+  function betClick(t) {
+    const me = state.me != null && state.me >= 0 ? PEOPLE[state.me].name : null;
+    if (!me) return;
+    if (t.dataset.betPost) {
+      const [player, side] = t.dataset.betPost.split('|');
+      if (!confirm(`Bet that ${player} ${side === 'yes' ? 'finishes first' : 'won’t finish first'}? The app has ${player} at ${pct(oddsOf(player))}.`)) return;
+      return betAction('/bets', { by: me, player, side }, 'Offer posted');
+    }
+    const id = t.dataset.betTake || t.dataset.betCancel, b = (bets.list || []).find((x) => x.id === id);
+    if (!b) return;
+    if (t.dataset.betTake) {
+      if (!confirm(`Take ${b.by}’s bet? You’re saying ${b.player} ${b.side === 'yes' ? 'won’t finish first' : 'finishes first'}.`)) return;
+      return betAction(`/bets/${encodeURIComponent(id)}/take`, { by: me }, 'Bet’s on');
+    }
+    return betAction(`/bets/${encodeURIComponent(id)}/cancel`, { by: me }, 'Offer canceled');
+  }
+  document.addEventListener('submit', (e) => {
+    const f = e.target.closest && e.target.closest('form[data-bet-code]');
+    if (!f) return;
+    e.preventDefault();
+    store.set('wl-code', f.elements.code.value.trim());
+    bets.error = '';
+    bets.list = null;
+    loadBets();
+  });
+
+  function renderBets() {
+    const el = $('view-bets');
+    if (!el || !D) return;
+    let html = `<div class="sect card"><h2>Title bets</h2><p>Bet each other on who finishes first. Each bet notes the app’s title odds at the time, but there’s no money and no stake, just a record. Bets settle when the regular season ends.</p></div>`;
+    if (!BETS_API) {
+      el.innerHTML = html + '<p class="empty card">Almost ready: the bets server isn’t set up yet.</p>';
+      return;
+    }
+    if (!groupCode()) {
+      el.innerHTML = html + `<form class="sect card" data-bet-code><h2>Group code</h2><p>Enter the code from the group chat. This phone remembers it.</p>
+        <div class="bet-code-row"><input type="text" name="code" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Group code" required><button type="submit" class="btn slim">Join</button></div>
+        ${bets.error ? `<p class="note">${esc(bets.error)}</p>` : ''}</form>`;
+      return;
+    }
+    const me = state.me != null && state.me >= 0 ? PEOPLE[state.me].name : null;
+    if (state.me == null) html += whoCard();
+    if (!bets.list) {
+      el.innerHTML = html + `<p class="empty card">${esc(bets.error || 'Loading the bets…')}</p>`;
+      return;
+    }
+    const over = seasonOver(), newest = (a, b) => ((a.takenAt || a.at) < (b.takenAt || b.at) ? 1 : -1);
+    const open = bets.list.filter((b) => b.status === 'open').sort(newest), taken = bets.list.filter((b) => b.status === 'taken').sort(newest);
+    const finish = (b, side = b.side) => (side === 'yes' ? 'finishes first' : 'won’t finish first');
+    // The board: everyone's title odds, and a bet either way.
+    if (!over) {
+      html += `<section class="sect card"><h2>Make a bet</h2>
+        ${PEOPLE.map((p, s) => ({ s, name: p.name, odds: D.oddsNow[s] })).sort((a, b) => b.odds - a.odds).map((r) => `<div class="bet-row"><span class="nm"><i class="dot" style="${pc(r.s)}"></i><b>${esc(r.name)}</b></span><span class="num">${pct(r.odds)}</span>
+          ${me ? `<button type="button" class="btn ghost slim" data-bet-post="${esc(r.name)}|yes">Wins it</button><button type="button" class="btn ghost slim" data-bet-post="${esc(r.name)}|no">Won’t</button>` : ''}</div>`).join('')}
+        <p class="note">${me ? 'Post an offer, and anyone else can take the other side.' : 'Pick who you are to make or take a bet.'} The percentages are the app’s title odds right now.</p></section>`;
+    }
+    if (open.length || !over) {
+      html += `<section class="sect card"><h2>Open offers</h2>${open.length ? open.map((b) => `<div class="bet">
+          <p><b>${esc(b.by)}</b> says <b>${esc(b.player)}</b> ${finish(b)}.</p>
+          <p class="note">Posted ${esc(fmtWhen.format(new Date(b.at)))} at ${pct(b.odds)}; ${esc(b.player)} is at ${pct(oddsOf(b.player))} now.</p>
+          ${!me ? '' : me === b.by ? `<div class="bet-btns"><button type="button" class="btn ghost slim" data-bet-cancel="${esc(b.id)}">Cancel</button></div>`
+            : `<div class="bet-btns"><button type="button" class="btn slim" data-bet-take="${esc(b.id)}">Take it: ${esc(b.player)} ${finish(b, b.side === 'yes' ? 'no' : 'yes')}</button></div>`}
+        </div>`).join('') : '<p class="note">None right now.</p>'}</section>`;
+    }
+    html += `<section class="sect card"><h2>Bets</h2>${taken.length ? taken.map((b) => {
+      const p = oddsOf(b.player), res = betResult(b);
+      const yes = b.side === 'yes' ? b.by : b.taker, no = b.side === 'yes' ? b.taker : b.by;
+      const won = res === 'W' ? b.by : res === 'L' ? b.taker : null;
+      return `<div class="bet"><p>Does <b>${esc(b.player)}</b> finish first?</p>
+        <div class="bet-sides"><span>Yes: <b>${esc(yes)}</b>${res ? '' : ` · ${pct(p)}`}</span><span>No: <b>${esc(no)}</b>${res ? '' : ` · ${pct(1 - p)}`}</span></div>
+        <p class="note">${esc(b.by)} posted it ${esc(fmtWhen.format(new Date(b.at)))} at ${pct(b.odds)}; ${esc(b.taker)} took it at ${pct(b.takenOdds)}.${res === 'push' ? ' A tie for first: a push.' : won ? ` ${esc(won)} won.` : ''}</p></div>`;
+    }).join('') : '<p class="note">No bets yet.</p>'}</section>`;
+    // Everyone's record: wins and losses once the season is over; until then, live bets and the wins
+    // they'd add up to at today's odds.
+    const rec = PEOPLE.map((p, s) => ({ s, name: p.name, w: 0, l: 0, live: 0, exp: 0 }));
+    for (const b of taken) {
+      const res = betResult(b), p = oddsOf(b.player);
+      for (const [who, side, mine] of [[b.by, b.side, 'W'], [b.taker, b.side === 'yes' ? 'no' : 'yes', 'L']]) {
+        const r = rec[slotOf(who)];
+        if (!r) continue;
+        if (!res) { r.live++; r.exp += side === 'yes' ? p : 1 - p; } else if (res === mine) r.w++; else if (res !== 'push') r.l++;
+      }
+    }
+    if (taken.length) {
+      html += `<section class="sect card"><h2>Records</h2><div class="brec hd"><span class="colhead">Name</span><span class="colhead num">W-L</span><span class="colhead num">Live</span><span class="colhead num">Expected</span></div>
+        ${rec.map((r) => `<div class="brec"><span class="nm"><i class="dot" style="${pc(r.s)}"></i><b>${esc(r.name)}</b></span><span class="num">${r.w}-${r.l}</span><span class="num">${r.live}</span><span class="num">${r.live ? r.exp.toFixed(1) : '–'}</span></div>`).join('')}
+        <p class="note">Expected: the wins live bets would add, at today’s odds.</p></section>`;
+    }
+    el.innerHTML = html;
   }
 
   /* ---------- draft ---------- */
@@ -2836,8 +3002,13 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   // Like an iPhone tab bar: each tab keeps its place, and tapping the tab you're on goes back to the top.
   // where: 'keep' (the tab's last place), 'top', or 'stay' (at startup). Tabs can also be swiped
   // sideways: the strip of tabs pages under the finger, and the tab bar follows once it's past halfway.
-  const TABS = ['standings', 'tonight', 'race', 'draft'];
+  const TABS = ['standings', 'tonight', 'race', 'draft', 'bets'];
   const pager = $('pager');
+  if (!BETS_API) {  // no Bets tab until its server is set up
+    document.querySelector('.tabbar [data-tab="bets"]').remove();
+    $('page-bets').remove();
+    TABS.pop();
+  }
   function setTab(tab, where = 'keep') {
     const page = $('page-' + tab);
     if (tab === state.tab && where === 'keep') {
@@ -2856,6 +3027,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     });
     pager.classList.toggle('locked', !!reorder && tab === 'tonight');
     if (tab === 'tonight') refreshStories();
+    if (tab === 'bets') loadBets();
   }
   pager.addEventListener('scroll', () => {
     const tab = TABS[Math.round(pager.scrollLeft / pager.clientWidth)];
@@ -2873,6 +3045,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     renderStandings();
     renderTonight();
     renderDraft();
+    renderBets();
   }
 
   document.addEventListener('click', (e) => {
@@ -2882,6 +3055,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     if (t.id === 'retryBtn') return boot();
     if (!D) return;
     if (t.dataset.reorder) return reorderAct(t.dataset.reorder);
+    if (t.dataset.betPost || t.dataset.betTake || t.dataset.betCancel) return betClick(t);
     if (t.dataset.move && reorder) return moveSel(t.dataset.move);
     if (t.dataset.row && reorder) {  // pick a game to move, or let go of it
       reorder.sel = reorder.sel === t.dataset.row ? null : t.dataset.row;
@@ -3067,6 +3241,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       refreshData();
       if (box && (!box.data || box.data.state === 'live')) loadBox();
       if (box) loadTakes();
+      if (state.tab === 'bets') loadBets();
     }
   });
 

@@ -1,0 +1,14 @@
+# The bets server (worker.js), on Cloudflare's free plan. Deployed by .github/workflows/bets.yml;
+# the group code is the GROUP_CODE secret. Local test: put GROUP_CODE=... in bets/.dev.vars and run
+# `npx wrangler dev --port 8787` in this folder.
+name = "wl-draft-bets"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "MARKET"
+class_name = "Market"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Market"]

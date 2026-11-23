@@ -2975,7 +2975,26 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => { if (D) drawChart(); }, 150);
   });
+  /* A home-screen app can show a copy of this page up to 10 minutes old (GitHub Pages lets phones keep
+     it that long), or one it has held in memory for days. So on opening and whenever the app comes back
+     to the front, ask which version is live (version.json, stamped at deploy time by the workflow along
+     with BUILD below) and, if it's another one, fetch the page fresh and reload. Once per version, so a
+     stubborn old copy can't reload over and over. */
+  const BUILD = '__BUILD__';
+  async function checkVersion() {
+    if (!/^[0-9a-f]+$/.test(BUILD)) return;  // not a deployed copy
+    try {
+      const r = await fetch('version.json?v=' + Date.now(), { cache: 'no-store' });
+      const live = r.ok ? (await r.json()).build : null;
+      if (!live || live === BUILD || store.get('wl-build-tried') === live) return;
+      store.set('wl-build-tried', live);
+      await fetch(location.pathname, { cache: 'reload' }).catch(() => {});
+      location.reload();
+    } catch (e) { /* offline: try again next time */ }
+  }
+
   document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkVersion();
     if (!document.hidden && D) {
       poll();
       refreshData();
@@ -3004,6 +3023,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     setInterval(() => { if (D) renderHeader(); }, 60e3);
   }
   boot();
+  checkVersion();
 })();
 </script>
 </body>

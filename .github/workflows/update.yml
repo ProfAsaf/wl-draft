@@ -48,6 +48,14 @@ jobs:
             git push origin HEAD:main
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+      # The page compares its own stamp with version.json to notice it's an old copy (checkVersion in
+      # index.html). The stamp is a hash of the page, so data-only deploys don't change it.
+      - name: Stamp the page with its version
+        if: steps.commit.outputs.changed == 'true' || github.event_name == 'push'
+        run: |
+          v=$(git hash-object site/index.html | cut -c1-10)
+          sed -i "s/__BUILD__/$v/" site/index.html
+          printf '{"build":"%s"}\n' "$v" > site/version.json
       - uses: actions/upload-pages-artifact@v5
         if: steps.commit.outputs.changed == 'true' || github.event_name == 'push'
         with:

@@ -7,7 +7,7 @@ The numbers in the sketches are made up. They describe one mid-January day, abou
 ## Decisions
 
 - **Scope:** this season's race. A past-seasons page can come later if old drafts turn up.
-- **Hosting:** a public GitHub Pages site. A GitHub Actions job refreshes the data, and the page itself polls ESPN while games are live.
+- **Hosting:** a public GitHub Pages site. A GitHub Actions job refreshes the data, and the page itself polls ESPN while games are live. GitHub Pages lets phones keep the page for 10 minutes, and a home-screen app can hold one in memory for days, so each deploy stamps the page with a hash of itself and writes it to `version.json`; the page checks that file when it opens and whenever it comes back to the front, and reloads itself once when a newer version is live.
 - **Look:** dark scoreboard style that switches to light when the phone is in light mode. Light, template-based trash talk.
 - **Constraints:** phone first, and fast (under 100 KB per load).
 

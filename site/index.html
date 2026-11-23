@@ -332,6 +332,13 @@ svg.ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-wi
 .chart .lbl { fill: var(--ink-2); font-size: 11px; font-family: var(--font-body); }
 .chart .lbl tspan.v { fill: var(--ink); font-weight: 700; }
 .chart .cx { stroke: var(--ink-2); stroke-width: 1; }
+/* Zoom: the season or its last few weeks */
+.zoom { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: -6px; }
+.zoom button {
+  min-height: 34px; padding: 0 13px; border-radius: 999px; background: var(--surface); color: var(--ink-2);
+  font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: 0.02em; white-space: nowrap;
+}
+.zoom button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .readout { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
 .rd-date { font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .rd-items { display: flex; flex-wrap: wrap; gap: 4px 16px; }
@@ -669,7 +676,8 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
   const extra = new Map();   // finals from days data.json hasn't recorded yet, fetched from ESPN
   const filled = new Set();  // those days, once every game on them is final
   const state = { tab: 'standings', me: null, expanded: null, head: 0, metric: 'pct', focus: null, scrub: null, botOpen: null,
-    gameChart: store.get('wl-gchart') === 'margin' ? 'margin' : 'chance' };  // the box score's chart, kept on this phone
+    gameChart: store.get('wl-gchart') === 'margin' ? 'margin' : 'chance',  // the box score's chart, kept on this phone
+    zoom: store.get('wl-zoom') || 'season' };  // the race chart's zoom, kept on this phone too
   const opened = new Set();  // fold-away sections left open, so a re-render doesn't close them
   const pc = (s) => `--pc:var(--p${s + 1})`;
 
@@ -1372,7 +1380,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
 
   /* ---------- race chart ---------- */
   const METRICS = [
-    { key: 'pct', label: 'Pct', help: 'Winning percentage, points per game your teams have played: what the standings rank by. The first days swing wildly, so the chart zooms in on recent weeks.' },
+    { key: 'pct', label: 'Pct', help: 'Winning percentage, points per game your teams have played: what the standings rank by. The first days swing wildly, so the season view pins them to the chart’s edges.' },
     { key: 'vegas', label: 'vs Vegas', help: 'Wins above or below what the preseason lines expected by now. Zero is exactly on pace.' },
     { key: 'points', label: 'Points', help: 'Total points: wins on W picks plus losses on L picks.' },
     { key: 'odds', label: 'Odds', help: 'Chance to finish first, re-simulated after every day of games.' },
@@ -1422,34 +1430,63 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     return { vals, top, bottom: -top, ticks, tick: (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v), val: (v) => signed(v), zero: true };
   }
 
+  // Zooming in: the last few weeks only, with the scale fitted to just those days so the gaps between
+  // players open up. [key, label, days]; a zoom as long as the season so far isn't offered.
+  const ZOOMS = [['season', 'Season', 0], ['28', '4 weeks', 28], ['14', '2 weeks', 14], ['7', '1 week', 7]];
+  const zoomsFor = (N) => ZOOMS.filter(([, , days]) => !days || days < N - 1);
+  function zoomStart(N) {
+    const z = zoomsFor(N).find(([k]) => k === state.zoom);
+    return z && z[2] ? N - 1 - z[2] : 0;
+  }
+  // Round steps that frame the values shown, a little padded, within the metric's own limits.
+  function fitTicks(vs, least, lo, hi) {
+    const min = Math.min(...vs), max = Math.max(...vs);
+    const step = niceStep(Math.max(max - min, least) / 4);
+    const bottom = Math.max(lo, Math.floor((min - step / 10) / step) * step);
+    const top = Math.min(hi, Math.ceil((max + step / 10) / step) * step);
+    const ticks = [];
+    for (let v = bottom; v <= top + step / 1e6; v += step) ticks.push(Number(v.toFixed(6)));
+    return { bottom, top, ticks };
+  }
+  function zoomSpec(metric, i0) {
+    const spec = chartSpec(metric);  // the values and how to write them; rank keeps its 1st-5th scale
+    if (metric === 'rank') return spec;
+    const shown = spec.vals.slice(i0).flat().filter((v) => v != null);
+    const [lo, hi, least] = { pct: [0, 1, 0.04], odds: [0, 100, 4], points: [0, Infinity, 4], vegas: [-Infinity, Infinity, 2] }[metric];
+    return { ...spec, clamp: false, ...fitTicks(shown.length ? shown : [0], least, lo, hi) };
+  }
+
   let chart = null;  // geometry of the drawn chart, for scrubbing
 
   function drawChart() {
     const host = $('chart');
     if (!host) return;
-    const spec = chartSpec(state.metric);
-    const N = spec.vals.length;
+    const N = D.series[state.metric].length, i0 = zoomStart(N);
+    const spec = i0 ? zoomSpec(state.metric, i0) : chartSpec(state.metric);
     const W = Math.max(280, Math.round(host.clientWidth - 8) || 340);
     const H = 236;
     const m = { l: 34, r: 100, t: 10, b: 24 };  // the right margin holds the end labels
     const pw = W - m.l - m.r, ph = H - m.t - m.b;
-    const x = (i) => m.l + (i / (N - 1)) * pw;
+    const x = (i) => m.l + ((i - i0) / (N - 1 - i0)) * pw;
     const y = (v) => m.t + ((spec.top - (spec.clamp ? clamp(v, spec.bottom, spec.top) : v)) / (spec.top - spec.bottom)) * ph;
     let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(METRICS.find((k) => k.key === state.metric).label)} by day for all five players">`;
     for (const t of spec.ticks) {
       svg += `<line class="${spec.zero && t === 0 ? 'zl' : 'gl'}" x1="${m.l}" x2="${m.l + pw}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
       svg += `<text class="ax" x="${m.l - 6}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(spec.tick(t))}</text>`;
     }
-    D.days.slice(0, N).forEach((d, i) => {
-      if (i > 0 && d.endsWith('-01')) {
-        svg += `<line class="gl" x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${m.t + ph}" y2="${m.t + ph + 4}"/>`;
-        svg += `<text class="ax" x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(fmtMonth.format(new Date(d + 'T12:00:00Z')))}</text>`;
-      }
-    });
+    const xLabel = (i, text) => `<line class="gl" x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${m.t + ph}" y2="${m.t + ph + 4}"/>`
+      + `<text class="ax" x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(text)}</text>`;
+    if (i0) {  // zoomed in: dates, back from the latest day, at least about 46px apart
+      const every = Math.max(1, Math.ceil(46 / (pw / (N - 1 - i0))));
+      for (let i = N - 1; i >= i0; i -= every) svg += xLabel(i, isoDay(D.days[i]));
+    } else {  // the season: the first of each month
+      D.days.slice(0, N).forEach((d, i) => { if (i > 0 && d.endsWith('-01')) svg += xLabel(i, fmtMonth.format(new Date(d + 'T12:00:00Z'))); });
+    }
     const dimmed = (s) => (state.focus != null && state.focus !== s ? ' dim' : '');
     for (let s = 0; s < NP; s++) {
       let path = '', pen = false;  // a day without a value (no games yet) breaks the line
       spec.vals.forEach((row, i) => {
+        if (i < i0) return;
         if (row[s] == null) { pen = false; return; }
         path += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(row[s]).toFixed(1)}`;
         pen = true;
@@ -1480,14 +1517,14 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     for (let s = 0; s < NP; s++) svg += `<circle class="ring" id="crossDot${s}" r="4" style="fill:var(--p${s + 1})"/>`;
     svg += `</g><rect id="hit" x="${m.l - 8}" y="0" width="${pw + 16}" height="${H}" fill="transparent"/></svg>`;
     host.innerHTML = svg;
-    chart = { spec, N, W, x, y, m, pw };
+    chart = { spec, N, W, x, y, m, pw, i0 };
     setScrub(state.scrub);
     renderReadout();
   }
 
   function setScrub(i) {
     if (!chart) return;
-    state.scrub = i == null ? null : clamp(i, 0, chart.N - 1);
+    state.scrub = i == null ? null : clamp(i, chart.i0, chart.N - 1);
     const g = document.getElementById('cross');
     if (!g) return;
     if (state.scrub == null) { g.setAttribute('visibility', 'hidden'); renderReadout(); return; }
@@ -1557,11 +1594,13 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     const metrics = METRICS.filter((k) => D.series[k.key]);  // an older data.json may lack Pct
     if (!metrics.some((k) => k.key === state.metric)) state.metric = metrics[0].key;
     const metric = METRICS.find((k) => k.key === state.metric);
+    const zooms = zoomsFor(N), zoomOn = zooms.some(([k]) => k === state.zoom) ? state.zoom : 'season';
+    const zoomRow = zooms.length < 2 ? '' : `<div class="zoom" role="group" aria-label="Zoom in on recent weeks">${zooms.map(([k, label]) => `<button type="button" data-zoom="${k}" aria-pressed="${k === zoomOn}">${label}</button>`).join('')}</div>`;
     $('view-race').innerHTML = `
       <div class="seg" role="tablist" aria-label="What to chart">${metrics.map((k) => `<button type="button" role="tab" aria-selected="${k.key === state.metric}" data-metric="${k.key}">${k.label}</button>`).join('')}</div>
       <p class="mhelp">${esc(metric.help)}</p>
       <div class="legend${state.focus != null ? ' focusing' : ''}" aria-label="Players">${PEOPLE.map((p, s) => `<button type="button" class="lg${state.focus === s ? ' on' : ''}" data-focus="${s}" aria-pressed="${state.focus === s}" style="${pc(s)}"><i></i>${esc(p.name)}</button>`).join('')}</div>
-      <div class="chart card" id="chart" tabindex="0" aria-describedby="readout"></div>
+      <div class="chart card" id="chart" tabindex="0" aria-describedby="readout"></div>${zoomRow}
       <div class="readout card" id="readout" aria-live="polite"></div>
       <p class="note">Drag across the chart to move through the season. Tap a name to pick out one line. Tonight's games join the chart once the day is over.</p>
       <details class="tbl" data-keep="tbl"${opened.has('tbl') ? ' open' : ''}><summary>Show as a table</summary>${raceTable()}</details>
@@ -1576,7 +1615,7 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
     if (!svg || !chart) return;
     const r = svg.getBoundingClientRect();
     const px = (e.clientX - r.left) * (chart.W / r.width);
-    setScrub(Math.round(((px - chart.m.l) / chart.pw) * (chart.N - 1)));
+    setScrub(chart.i0 + Math.round(((px - chart.m.l) / chart.pw) * (chart.N - 1 - chart.i0)));
   }
 
   /* ---------- draft ---------- */
@@ -2823,9 +2862,21 @@ details.tbl summary { cursor: pointer; font-size: 14px; font-weight: 600; min-he
       state.focus = state.focus === s ? null : s;
       return renderRace();
     }
+    if (t.dataset.zoom) {
+      state.zoom = t.dataset.zoom;
+      store.set('wl-zoom', state.zoom);
+      state.scrub = null;
+      return renderRace();
+    }
     if (t.dataset.day != null) {
       if (!chart) return;
-      setScrub(Number(t.dataset.day));
+      const day = Number(t.dataset.day);
+      if (day < chart.i0) {  // a moment from before the zoomed-in weeks: back out to the season
+        state.zoom = 'season';
+        store.set('wl-zoom', state.zoom);
+        renderRace();
+      }
+      setScrub(day);
       return $('chart').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
     }
     if (t.dataset.bot != null) {

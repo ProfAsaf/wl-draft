@@ -178,6 +178,8 @@ Each started game also gets a short story, written by rules in the page (no AI s
 +------------------------------------+
 ```
 
+Under the chart, zoom buttons (Season, 4 weeks, 2 weeks, 1 week; a zoom as long as the season so far isn't offered) show just the last few weeks, with the scale fitted to those days so the gaps between players open up. The first days of a season swing wildly (Pct starts at 0 or 1.000), which otherwise squeezes the current race into a thin band. Rank keeps its 1st-5th scale. Dragging scrubs within the zoomed weeks, tapping a moment from before them goes back to the season view, and the choice is kept on that phone.
+
 ### Draft
 
 ```
